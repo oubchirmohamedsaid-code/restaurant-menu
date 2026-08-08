@@ -1,4 +1,3 @@
-import { DatabaseSync } from "node:sqlite";
 import { join } from "node:path";
 import { mkdirSync } from "node:fs";
 import { createClient } from "@libsql/client";
@@ -106,8 +105,8 @@ interface DbHandle {
 }
 
 class LocalDb implements DbHandle {
-  private conn: DatabaseSync;
-  constructor(conn: DatabaseSync) {
+  private conn: { exec(s: string): void; prepare(s: string): unknown };
+  constructor(conn: { exec(s: string): void; prepare(s: string): unknown }) {
     this.conn = conn;
   }
   exec(sql: string): Promise<void> {
@@ -115,20 +114,24 @@ class LocalDb implements DbHandle {
     return Promise.resolve();
   }
   prepare(sql: string): Statement {
-    const stmt = this.conn.prepare(sql);
+    const stmt = this.conn.prepare(sql) as {
+      all(...a: unknown[]): unknown;
+      get(...a: unknown[]): unknown;
+      run(...a: unknown[]): unknown;
+    };
     const toPlain = (r: Row) => ({ ...r });
     return {
       all: (...args) =>
         Promise.resolve(
-          (stmt.all(...(args as Parameters<typeof stmt.all>)) as Row[]).map(toPlain),
+          (stmt.all(...args) as Row[]).map(toPlain),
         ),
       get: (...args) => {
-        const row = stmt.get(...(args as Parameters<typeof stmt.get>)) as Row | undefined;
+        const row = stmt.get(...args) as Row | undefined;
         return Promise.resolve(row ? { ...row } : undefined);
       },
       run: (...args) =>
         Promise.resolve(
-          stmt.run(...(args as Parameters<typeof stmt.run>)) as unknown as {
+          stmt.run(...args) as unknown as {
             lastInsertRowid: number | bigint;
           },
         ),
@@ -170,6 +173,7 @@ async function hasColumn(db: DbHandle, table: string, col: string): Promise<bool
 }
 
 async function openLocal(): Promise<DbHandle> {
+  const { DatabaseSync } = await import("node:sqlite");
   mkdirSync(DATA_DIR, { recursive: true });
   const conn = new DatabaseSync(DB_PATH);
   conn.exec("PRAGMA journal_mode = WAL;");
