@@ -107,18 +107,23 @@ const seed: SeedCategory[] = [
   },
 ];
 
-let total = 0;
-clearAll();
-seed.forEach((cat, ci) => {
-  const categoryId = createCategory(cat.slug, cat.nameAr, cat.icon, cat.imageUrl, ci);
-  cat.products.forEach((p) => {
-    const productId = createProduct({ ...p, categoryId, isAvailable: 1 });
-    total += 1;
-    (p.ingredients ?? []).forEach((ing) => {
-      createIngredient(productId, ing.name, ing.priceCents, ing.isExtra, ing.isRequired ?? 0);
-    });
-  });
-});
+async function main() {
+  let total = 0;
+  await clearAll();
+  for (let ci = 0; ci < seed.length; ci++) {
+    const cat = seed[ci];
+    const categoryId = await createCategory(cat.slug, cat.nameAr, cat.icon, cat.imageUrl, ci);
+    for (const p of cat.products) {
+      const productId = await createProduct({ ...p, categoryId, isAvailable: 1 });
+      total += 1;
+      for (const ing of p.ingredients ?? []) {
+        await createIngredient(productId, ing.name, ing.priceCents, ing.isExtra, ing.isRequired ?? 0);
+      }
+    }
+  }
 
-logger.info("seed complete", { categories: seed.length, products: total });
-console.log(`Seeded ${seed.length} categories and ${total} products`);
+  logger.info("seed complete", { categories: seed.length, products: total });
+  console.log(`Seeded ${seed.length} categories and ${total} products`);
+}
+
+main();

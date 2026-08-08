@@ -94,14 +94,14 @@ export async function createProductAction(
   const isAvailable = parseBool(formData.get("isAvailable"));
   const image = await uploadImageField(formData);
 
-  if (!getCategoryById(categoryId)) return { error: "الصنف غير موجود" };
+  if (!(await getCategoryById(categoryId))) return { error: "الصنف غير موجود" };
   if (!name) return { error: "الاسم مطلوب" };
   if (priceCents === null) return { error: "السعر غير صالح" };
   if (!image) return { error: "صورة الطبق مطلوبة" };
   if ("error" in image) return { error: image.error };
   const imageUrl = image.path;
 
-  createProduct({ categoryId, name, description, priceCents, imageUrl, isAvailable });
+  await createProduct({ categoryId, name, description, priceCents, imageUrl, isAvailable });
   logger.info("product created", { categoryId, name, priceCents });
   return { ok: true };
 }
@@ -117,7 +117,7 @@ export async function updateProductAction(
   const description = String(formData.get("description") ?? "").trim();
   const priceCents = parsePriceCents(formData.get("price"));
   const isAvailable = parseBool(formData.get("isAvailable"));
-  const existing = getProductById(id);
+  const existing = await getProductById(id);
   const image = await uploadImageField(formData);
 
   if (!existing) return { error: "الطبق غير موجود" };
@@ -126,7 +126,7 @@ export async function updateProductAction(
   if (image && "error" in image) return { error: image.error };
   const imageUrl = image && "path" in image ? image.path : existing.imageUrl;
 
-  updateProduct(id, { categoryId, name, description, priceCents, imageUrl, isAvailable });
+  await updateProduct(id, { categoryId, name, description, priceCents, imageUrl, isAvailable });
   logger.info("product updated", { id, name, priceCents });
   return { ok: true };
 }
@@ -137,7 +137,7 @@ export async function deleteProductAction(
 ): Promise<ActionResult> {
   if (!(await isAdmin())) redirect("/admin");
   const id = Number(formData.get("id"));
-  deleteProduct(id);
+  await deleteProduct(id);
   logger.info("product deleted", { id });
   return { ok: true };
 }
@@ -151,7 +151,7 @@ export async function updateCategoryImageAction(
   const image = await uploadImageField(formData);
   if (!image) return { error: "صورة الصنف مطلوبة" };
   if ("error" in image) return { error: image.error };
-  updateCategoryImage(id, image.path);
+  await updateCategoryImage(id, image.path);
   logger.info("category image updated", { id });
   return { ok: true };
 }
@@ -172,9 +172,9 @@ export async function saveIngredientAction(
   if (priceCents === null) return { error: "السعر غير صالح" };
 
   if (rawId) {
-    updateIngredient(Number(rawId), name, priceCents, isExtra, isRequired);
+    await updateIngredient(Number(rawId), name, priceCents, isExtra, isRequired);
   } else {
-    createIngredient(productId, name, priceCents, isExtra, isRequired);
+    await createIngredient(productId, name, priceCents, isExtra, isRequired);
   }
   logger.info("ingredient saved", { productId, name, priceCents, isExtra, isRequired });
   return { ok: true };
@@ -186,7 +186,7 @@ export async function deleteIngredientAction(
 ): Promise<ActionResult> {
   if (!(await isAdmin())) redirect("/admin");
   const id = Number(formData.get("id"));
-  deleteIngredient(id);
+  await deleteIngredient(id);
   logger.info("ingredient deleted", { id });
   return { ok: true };
 }
@@ -197,7 +197,7 @@ export async function deleteOrderAction(
 ): Promise<ActionResult> {
   if (!(await isAdmin())) redirect("/admin");
   const id = Number(formData.get("id"));
-  deleteOrder(id);
+  await deleteOrder(id);
   logger.info("order deleted", { id });
   return { ok: true };
 }

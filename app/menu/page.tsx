@@ -6,8 +6,8 @@ export const dynamic = "force-dynamic";
 
 export const metadata = { title: "المنيو | مطعم الذواقة" };
 
-export default function MenuPage() {
-  const categories = listCategoriesWithCounts();
+export default async function MenuPage() {
+  const categories = await listCategoriesWithCounts();
   logger.info("menu page rendered", { categories: categories.length });
 
   return (

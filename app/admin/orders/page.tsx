@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function OrdersPage() {
   if (!(await isAdmin())) redirect("/admin");
 
-  const orders = listOrders();
+  const orders = await listOrders();
   logger.info("orders page rendered", { orders: orders.length });
 
   return <OrdersView orders={orders} />;

@@ -30,11 +30,11 @@ export async function placeOrderAction(lines: CartLine[]): Promise<OrderActionRe
     if (!l || typeof l.productId !== "number" || !Number.isInteger(l.qty) || l.qty < 1 || l.qty > MAX_QTY) {
       return { error: "بنود غير صالحة" };
     }
-    const product = getProductById(l.productId);
+    const product = await getProductById(l.productId);
     if (!product || product.isAvailable !== 1) {
       return { error: `طبق غير متوفر: ${l.name}` };
     }
-    const ingredients = listIngredientsByProduct(product.id);
+    const ingredients = await listIngredientsByProduct(product.id);
     const byId = new Map(ingredients.map((i) => [i.id, i]));
     const extras = (l.extras ?? [])
       .filter((e) => e && byId.has(e.id))
@@ -57,7 +57,7 @@ export async function placeOrderAction(lines: CartLine[]): Promise<OrderActionRe
     );
   }
 
-  const orderId = createOrder(JSON.stringify(items), totalCents);
+  const orderId = await createOrder(JSON.stringify(items), totalCents);
   logger.info("order placed", { orderId, totalCents, items: items.length });
   return { ok: true, orderId };
 }

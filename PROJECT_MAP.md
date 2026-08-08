@@ -1,7 +1,7 @@
 # PROJECT_MAP — Restaurant Menu (المنيو الإلكتروني)
 
 > آخر تحديث: 2026-08-08 | مسار الجذر: `restaurant-menu/` (مجلد فرعي، مجزول عن ملفات المتجر القائمة)
-> سجل قرارات: **DB Runtime = `node:sqlite`** (المدمج في Node 24) بدلاً من Prisma — سبب: better-sqlite3 بلا prebuild لـ Node24/win32 والبناء يتطلب أدوات VS غير متوفرة؛ `node:sqlite` صفر تبعيات ومضمون (Simplicity First). Prisma أُزيل كلياً (deps، prisma.config.ts، migrations، generated).
+> سجل قرارات: **DB Runtime = `node:sqlite` محلياً + Turso (libSQL) على السحابة** — محلياً: `node:sqlite` (DatabaseSync) صفر تبعيات؛ عند النشر (Vercel): `@libsql/client` يتصل بقاعدة Turso عبر `TURSO_URL`/`TURSO_TOKEN`. الانتقال تلقائي في `lib/db.ts` (دوال async موحّدة).
 
 ## [TECH_STACK]
 
@@ -11,7 +11,7 @@
 | Framework | Next.js (App Router) | **16.3.0** (LTS, 2026-08-03) | React 19 + TS مدمجان |
 | Styling | Tailwind CSS | **4.3.3** (2026-07-16) | تصميم داكن (dark-first) عبر tokens |
 | Animations | Motion (خليفة framer-motion) | **13.0.0** (2026-08-05) | الاستيراد من `motion/react` |
-| DB | SQLite عبر **`node:sqlite`** (DatabaseSync) | مدمج في Node 24 | صفر تبعيات أصلية؛ schema يُطبّق عند الإقلاع (idempotent) |
+| DB | SQLite: **`node:sqlite` محلياً** + **Turso (libSQL) عن بُعد** عبر `@libsql/client` | مدمج + 0.17.4 | `getDb()` يختار تلقائياً: `TURSO_URL` موجود → Turso، وإلا ملف `data/menu.db`؛ schema idempotent يُطبّق عند الإقلاع على كليهما |
 | Auth | HMAC-session مكتوبة يدوياً (`node:crypto`) | — | بدون تبعيات؛ كلمة مرور واحدة من `.env` |
 
 قواعد: لا تُستخدم أي حزمة Deprecated. أي إصدار ناقص يُثبَّت بأحدث Stable وقت التنفيذ ويُوثَّق هنا.
@@ -45,7 +45,7 @@ restaurant-menu/
 │   ├── cart.tsx                        # CartProvider + SiteHeader + درج السلة (تأكيد طلب → orders)
 │   └── admin-ui.tsx                    # نماذج/جداول الادمن (useActionState) + مدير مكونات (أقسام + إلزامي) + الطلبات
 ├── lib/
-│   ├── db.ts                           # node:sqlite — schema idempotent + ترحيل imageUrl/isRequired + CRUD مصنف
+│   ├── db.ts                           # طبقة بيانات async مزدوجة: node:sqlite محلياً / Turso (TURSO_URL) — schema idempotent + ترحيل imageUrl/isRequired + CRUD مصنف
 │   ├── upload.ts                       # رفع صور من الجهاز: تحقق صيغة/حجم (حد 4MB) → public/uploads
 │   ├── session.ts                      # HMAC sign/verify + verifyPassword (HttpOnly)
 │   ├── cart.ts                         # منطق سلة نقي: count/total/formatOrderLine (قابل للاختبار)
@@ -85,6 +85,8 @@ restaurant-menu/
 - [x] **M11 رفع الصور من الجهاز** — `lib/upload.ts` (تحقق صيغة/حجم، حد 4MB، حفظ في `public/uploads`) + `serverActions.bodySizeLimit: "5mb"`؛ نماذج الادمن (طبق/صنف) أصبحت `type="file"` بدل روابط، مع معاينة عند التعديل.
 - [x] **M12 أصناف بمكونات إلزامية وصفحات مستقلة** — لوحة الادمن أصبحت شبكة أصناف → `/admin/categories/[slug]` لكل صنف (صورة + أطباق + مكونات)؛ أقسام منفصلة للأساسية/الإضافات؛ `isRequired` يمنع إزالة المكون لدى الزبون (🔒) ويُستثنى من `removedList`.
 - [x] **M13 نافذة تخصيص أوسع وأوضح** — `ProductCustomizer` من `max-w-lg` إلى `max-w-2xl`؛ قسم أساسية/إضافات جنباً إلى جنب على الشاشات ≥sm (شبكة شرطية عند وجود القسمين فقط)؛ شرائح/صفوف/عناوين/إجمالي أكبر؛ بلا تغيير في منطق التخصيص.
+- [x] **M14 نشر حقيقي: GitHub + Turso + Vercel** — المستودع على GitHub (`oubchirmohamedsaid-code/restaurant-menu`، فرع `main`، 46 ملفاً)؛ قاعدة Turso `restaurant-menu` (URL+Token في `.env` المحلي فقط، gitignored)؛ تُحقّق Turso باختبار HTTP كامل (كل المسارات 200) وسموك خضراء؛ الخطوة الأخيرة: ربط Vercel بالمتغيرات الأربعة ثم Deploy.
+- [ ] **ربط Vercel** — استيراد المستودع من GitHub → إضافة `TURSO_URL` + `TURSO_TOKEN` + `ADMIN_PASSWORD` + `SESSION_SECRET` → Deploy → تحقق HTTP للرابط الحي.
 - [ ] صور المنتجات المبدئية من `images.unsplash.com` (مخاطرة Hotlinking) — الادمن يستبدلها برابطه؛ **رفع ملفات خارج النطاق** (معيار متفق عليه).
 - [ ] CRUD للأصناف نفسها — **خارج النطاق** عمداً (الأصناف مُزرعة وثابتة؛ يُعدّل رابط صورتها فقط).
 - [ ] حالة/عرض وتأكيد الطلب من الزبون أو حالة (جديد/مكتمل) في الادمن — **خارج النطاق** حالياً (الطلبات مخزّنة تُعرض وتُحذف فقط).
@@ -102,3 +104,4 @@ restaurant-menu/
 - **رفع الصور محلياً**: `saveImageUpload` يتحقق من الصيغة (jpeg/png/webp/gif) والحجم (≤4MB) ويحفظ باسم فريد في `public/uploads`؛ `bodySizeLimit` في next.config ليتسع لنقل ملفات النماذج.
 - **المكون الإلزامي**: `isRequired` يقفل إزالة المكون في نافذة الزبون (disabled + 🔒) ويستبعد الإضافة قسرياً من `removedList`؛ لا يُطبّق سعر (الرئيسية مشمولة دائماً).
 - **صفحات الأصناف الادمن**: `/admin/dashboard` مجرد شبكة بطاقات؛ كل صنف له صفحته `/admin/categories/[slug]` كي تنمو أقسام كل صنف دون ازدحام صفحة واحدة.
+- **Turso/Vercel**: `node:sqlite` مدمج يعمل محلياً فقط (ملف) ولا يعمل على Vercel؛ لذلك أُضيفت طبقة `@libsql/client` (async) مع `getDb()` يقرر تلقائياً بناءً على `TURSO_URL`. كل الدوال/السكربتات تحوّلت إلى async بواجهة واحدة؛ السكربتات داخل `async main()`. النشر على Vercel يحتاج `TURSO_URL` + `TURSO_TOKEN` (+ `ADMIN_PASSWORD` + `SESSION_SECRET`) في متغيرات البيئة.

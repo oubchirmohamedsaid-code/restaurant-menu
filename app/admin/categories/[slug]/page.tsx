@@ -19,13 +19,16 @@ export default async function CategoryPage({
   if (!(await isAdmin())) redirect("/admin");
 
   const { slug } = await params;
-  const category = listCategoriesWithCounts().find((c) => c.slug === slug);
+  const categories = await listCategoriesWithCounts();
+  const category = categories.find((c) => c.slug === slug);
   if (!category) notFound();
 
-  const products = listProductsByCategory(category.id).map((p) => ({
-    ...p,
-    ingredients: listIngredientsByProduct(p.id),
-  }));
+  const products = await Promise.all(
+    (await listProductsByCategory(category.id)).map(async (p) => ({
+      ...p,
+      ingredients: await listIngredientsByProduct(p.id),
+    })),
+  );
   logger.info("category rendered", { slug, products: products.length });
 
   return <CategoryView category={category} products={products} />;

@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function DashboardPage() {
   if (!(await isAdmin())) redirect("/admin");
 
-  const categories = listCategoriesWithCounts();
+  const categories = await listCategoriesWithCounts();
   logger.info("dashboard rendered", { categories: categories.length });
 
   return <CategoryListView categories={categories} />;

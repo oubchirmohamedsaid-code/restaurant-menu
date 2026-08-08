@@ -15,13 +15,18 @@ export default async function CategoryPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const category = getCategoryBySlug(slug);
+  const category = await getCategoryBySlug(slug);
   if (!category) {
     logger.warn("category not found", { slug });
     notFound();
   }
 
-  const products = listProductsByCategory(category.id);
+  const products = await listProductsByCategory(category.id);
+  const ingredientsByProduct = new Map(
+    await Promise.all(
+      products.map(async (p) => [p.id, await listIngredientsByProduct(p.id)] as const),
+    ),
+  );
   logger.info("category page rendered", { slug, products: products.length });
 
   return (
@@ -39,7 +44,7 @@ export default async function CategoryPage({
           <ProductCard
             key={p.id}
             product={p}
-            ingredients={listIngredientsByProduct(p.id)}
+            ingredients={ingredientsByProduct.get(p.id) ?? []}
           />
         ))}
       </div>

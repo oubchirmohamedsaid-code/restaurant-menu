@@ -3,7 +3,7 @@ import { countAll } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-export default function HomePage() {
-  const { products } = countAll();
+export default async function HomePage() {
+  const { products } = await countAll();
   return <HeroSection dishCount={products} />;
 }

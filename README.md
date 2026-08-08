@@ -38,6 +38,20 @@ npm run build && npm run start   # الإنتاج
 | `ADMIN_PASSWORD` | كلمة مرور الادمن |
 | `SESSION_SECRET` | سر توقيع الجلسة (HMAC) |
 | `CURRENCY` | رمز العملة (افتراضياً `دج` — دينار جزائري) |
+| `TURSO_URL` | (اختياري محلياً، مطلوب في Vercel) رابط قاعدة Turso `libsql://...` — عند ضبطه تُستخدم القاعدة السحابية بدل الملف المحلي |
+| `TURSO_TOKEN` | (اختياري محلياً، مطلوب في Vercel) رمز الوصول لقاعدة Turso |
+
+## النشر (Vercel + Turso)
+
+`node:sqlite` يعمل محلياً فقط؛ على Vercel تُستخدم قاعدة **Turso** (libSQL) تلقائياً عند ضبط المتغيرين:
+
+1. أنشئ قاعدة في [Turso](https://turso.tech) وأصدر **Token** منها.
+2. ارفع المستودع إلى GitHub.
+3. في [vercel.com](https://vercel.com) → **Add New Project** → Import من GitHub.
+4. أضف متغيرات البيئة: `TURSO_URL`, `TURSO_TOKEN`, `ADMIN_PASSWORD`, `SESSION_SECRET`.
+5. **Deploy** — قاعدة Turso تُهيّأ تلقائياً عند أول تشغيل (schema idempotent).
+
+محلياً: `npm run db:seed && npx tsx scripts/smoke.ts` تشغّل أيضاً ضد Turso عندما يكون `TURSO_URL` مضبوطاً.
 
 ## الاختبارات
 
@@ -47,4 +61,4 @@ npm run lint
 npm run build
 ```
 
-التسجيل (غير حظري) في `logs/app.log`. قاعدة البيانات SQLite في `data/menu.db`.
+التسجيل (غير حظري) في `logs/app.log`. قاعدة البيانات SQLite في `data/menu.db` (محلياً) أو Turso (عند ضبط `TURSO_URL`).
