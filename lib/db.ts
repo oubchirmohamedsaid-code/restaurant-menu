@@ -210,6 +210,11 @@ function getDb(): Promise<DbHandle> {
     if (process.env.TURSO_URL) {
       logger.info("db backend: turso", { url: process.env.TURSO_URL });
       globalForDb.db = openTurso();
+    } else if (process.env.NODE_ENV === "production") {
+      const msg =
+        "TURSO_URL is not configured. On a hosted deployment (Vercel) set TURSO_URL and TURSO_TOKEN in Environment Variables, then redeploy.";
+      logger.error(msg);
+      globalForDb.db = Promise.reject(new Error(msg));
     } else {
       logger.info("db backend: local sqlite");
       globalForDb.db = openLocal();
