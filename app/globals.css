@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #08080a;
+  --surface: #0f0f13;
+  --card: #17171d;
+  --card-2: #1d1d25;
+  --line: #26262e;
+  --accent: #f59e0b;
+  --accent-strong: #fbbf24;
+  --accent-soft: rgba(245, 158, 11, 0.12);
+  --foreground: #f4f4f5;
+  --muted: #a1a1aa;
+}
+
+@theme inline {
+  --color-background: var(--bg);
+  --color-surface: var(--surface);
+  --color-card: var(--card);
+  --color-card-2: var(--card-2);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --font-sans: var(--font-cairo);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--bg);
+  color: var(--foreground);
+  font-family: var(--font-cairo), system-ui, sans-serif;
+}
+
+::selection {
+  background: var(--accent);
+  color: #181008;
+}
+
+.text-gradient-accent {
+  background: linear-gradient(120deg, #fbbf24, #f59e0b 45%, #ef4444 90%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.hero-glow {
+  background: radial-gradient(
+    60% 50% at 50% 0%,
+    rgba(245, 158, 11, 0.16),
+    transparent 70%
+  );
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-14px) rotate(6deg); }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--surface);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
