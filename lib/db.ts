@@ -13,6 +13,7 @@ export interface CategoryRow {
   nameAr: string;
   icon: string;
   imageUrl: string;
+  isHidden: number;
   sortOrder: number;
 }
 
@@ -61,6 +62,7 @@ CREATE TABLE IF NOT EXISTS Category (
   nameAr TEXT NOT NULL,
   icon TEXT NOT NULL,
   imageUrl TEXT NOT NULL DEFAULT '',
+  isHidden INTEGER NOT NULL DEFAULT 0,
   sortOrder INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS Product (
@@ -186,6 +188,9 @@ async function openLocal(): Promise<DbHandle> {
   if (!(await hasColumn(db, "Category", "imageUrl"))) {
     await db.exec("ALTER TABLE Category ADD COLUMN imageUrl TEXT NOT NULL DEFAULT ''");
   }
+  if (!(await hasColumn(db, "Category", "isHidden"))) {
+    await db.exec("ALTER TABLE Category ADD COLUMN isHidden INTEGER NOT NULL DEFAULT 0");
+  }
   if (!(await hasColumn(db, "Ingredient", "isRequired"))) {
     await db.exec("ALTER TABLE Ingredient ADD COLUMN isRequired INTEGER NOT NULL DEFAULT 0");
   }
@@ -202,6 +207,9 @@ async function openTurso(): Promise<DbHandle> {
   await db.exec(SCHEMA);
   if (!(await hasColumn(db, "Category", "imageUrl"))) {
     await db.exec("ALTER TABLE Category ADD COLUMN imageUrl TEXT NOT NULL DEFAULT ''");
+  }
+  if (!(await hasColumn(db, "Category", "isHidden"))) {
+    await db.exec("ALTER TABLE Category ADD COLUMN isHidden INTEGER NOT NULL DEFAULT 0");
   }
   if (!(await hasColumn(db, "Ingredient", "isRequired"))) {
     await db.exec("ALTER TABLE Ingredient ADD COLUMN isRequired INTEGER NOT NULL DEFAULT 0");
@@ -263,23 +271,48 @@ export async function getProductById(id: number): Promise<ProductRow | undefined
   return plainRow<ProductRow>(await db.prepare("SELECT * FROM Product WHERE id = ?").get(id));
 }
 
-export async function createCategory(
-  slug: string,
-  nameAr: string,
-  icon: string,
-  imageUrl: string,
-  sortOrder: number,
-): Promise<number> {
-  const db = await getDb();
-  const result = await db
-    .prepare("INSERT INTO Category (slug, nameAr, icon, imageUrl, sortOrder) VALUES (?, ?, ?, ?, ?)")
-    .run(slug, nameAr, icon, imageUrl, sortOrder);
-  return Number(result.lastInsertRowid);
-}
-
 export async function updateCategoryImage(id: number, imageUrl: string): Promise<void> {
   const db = await getDb();
   await db.prepare("UPDATE Category SET imageUrl = ? WHERE id = ?").run(imageUrl, id);
+}
+
+export async function createCategory(input: {
+  slug: string;
+  nameAr: string;
+  icon: string;
+  imageUrl: string;
+  sortOrder: number;
+}): Promise<number> {
+  const db = await getDb();
+  const { lastInsertRowid } = await db
+    .prepare(
+      "INSERT INTO Category (slug, nameAr, icon, imageUrl, sortOrder) VALUES (?, ?, ?, ?, ?)",
+    )
+    .run(input.slug, input.nameAr, input.icon, input.imageUrl, input.sortOrder);
+  return Number(lastInsertRowid);
+}
+
+export async function updateCategory(
+  id: number,
+  input: { nameAr: string; isHidden: number },
+): Promise<void> {
+  const db = await getDb();
+  await db
+    .prepare("UPDATE Category SET nameAr = ?, isHidden = ? WHERE id = ?")
+    .run(input.nameAr, input.isHidden, id);
+}
+
+export async function deleteCategory(id: number): Promise<void> {
+  const db = await getDb();
+  await db.prepare("DELETE FROM Category WHERE id = ?").run(id);
+}
+
+export async function reorderCategories(ids: number[]): Promise<void> {
+  const db = await getDb();
+  const unique = [...new Set(ids)].filter((id) => Number.isInteger(id) && id > 0);
+  for (let i = 0; i < unique.length; i++) {
+    await db.prepare("UPDATE Category SET sortOrder = ? WHERE id = ?").run(i, unique[i]);
+  }
 }
 
 export async function createProduct(input: ProductInput): Promise<number> {

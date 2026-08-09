@@ -120,28 +120,39 @@ export function CategoryCard({
     >
       <Link
         href={`/menu/${slug}`}
-        className="group flex flex-col items-center gap-3 rounded-3xl border border-line bg-card p-4 text-center shadow-lg transition-colors hover:border-accent/60 hover:bg-card-2"
+        className="group relative block aspect-square overflow-hidden rounded-3xl border border-line bg-card shadow-lg transition-colors hover:border-accent/60"
       >
-        <div className="relative h-32 w-full overflow-hidden rounded-2xl">
-          {imageUrl ? (
+        {imageUrl ? (
+          <>
             <Image
               src={imageUrl}
               alt={nameAr}
               fill
-              sizes="(max-width: 640px) 100vw, 280px"
+              sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 25vw"
               className="object-cover transition-transform duration-500 group-hover:scale-110"
             />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center bg-card-2 text-6xl">
-              {icon}
-            </div>
-          )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
+          </>
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center bg-card-2 text-6xl transition-transform duration-500 group-hover:scale-110">
+            {icon}
+          </div>
+        )}
+
+        <div className="absolute inset-x-0 bottom-0 flex flex-col gap-0.5 p-3.5 sm:p-4">
+          <div className="flex items-center gap-2">
+            {!imageUrl && <span aria-hidden className="text-base">{icon}</span>}
+            <span className="text-lg font-black leading-tight text-white drop-shadow sm:text-xl">
+              {nameAr}
+            </span>
+          </div>
+          <span className="text-xs font-bold text-white/75 sm:text-sm">
+            {productCount} طبق
+          </span>
+          <span className="mt-1 text-xs font-extrabold text-accent opacity-0 transition-opacity group-hover:opacity-100 sm:text-sm">
+            استكشف ←
+          </span>
         </div>
-        <span className="text-xl font-extrabold">{nameAr}</span>
-        <span className="text-sm font-bold text-muted">{productCount} طبق</span>
-        <span className="mt-1 text-sm font-bold text-accent opacity-0 transition-opacity group-hover:opacity-100">
-          استكشف ←
-        </span>
       </Link>
     </motion.div>
   );

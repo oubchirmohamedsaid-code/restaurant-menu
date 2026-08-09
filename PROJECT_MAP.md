@@ -20,7 +20,7 @@
 
 **رحلة الزبون:** `/` (Hero ترحيبي + أنيميشن) → زر «تفقد الآن» → `/menu` (شبكة الأصناف بصور: مشروبات / بيتزا / برجر …) → `/menu/[slug]` (منتجات الصنف؛ زر «المكونات 🧅» يفتح نافذة تخصيص: إزالة مكونات أساسية أو إضافة إضافات بسعر إضافي) → إضافة إلى السلة (Context + localStorage، سطر فريد لكل تخصيص عبر `key`) → درج السلة → «تأكيد الطلب» يُرسل Server Action يُخزّن الطلب في `orders` (بلا واتساب).
 
-**رحلة الادمن:** `/admin` (تسجيل دخول بكلمة مرور واحدة) → HttpOnly Cookie موقّع HMAC → `/admin/dashboard` (شبكة الأصناف) → `/admin/categories/[slug]` (صفحة مستقلة لكل صنف: صورة الصنف + CRUD للأطباق + مكونات الطبق بأقسامها + الصور تُرفع من الجهاز) → `/admin/orders` (قائمة طلبات الزبائن مع الحذف) → Server Actions (محروسة بالمصادقة) → `node:sqlite`.
+**رحلة الادمن:** `/admin` (تسجيل دخول بكلمة مرور واحدة) → HttpOnly Cookie موقّع HMAC → `/admin/dashboard` (قائمة أصناف قابلة للترتيب Drag & Drop + إضافة صنف + إخفاء/إظهار/تعديل اسم/حذف لكل صنف) → `/admin/categories/[slug]` (لوحة إدارة الصنف: اسم + إخفاء/إظهار + حذف + صورة + لوحة الرؤية؛ وكل طبق بأقسام أكورديون: معلومات/مكونات/إضافات/خيارات أخرى) → `/admin/orders` (قائمة طلبات الزبائن مع الحذف) → Server Actions (محروسة بالمصادقة) → `node:sqlite`.
 
 **تدفق البيانات:** صفحات الخادم (Server Components) تقرأ `node:sqlite` مباشرة عبر `lib/db.ts`؛ الطفرات عبر Server Actions فقط؛ السلة Client-side (ترسل بنودها عند تأكيد الطلب ويُعاد حساب السعر خادمياً للمصادقة). الصفحات المقرؤة للبيانات `force-dynamic` كي تنعكس تعديلات الادمن فوراً.
 
@@ -32,21 +32,21 @@ restaurant-menu/
 │   ├── layout.tsx / globals.css        # RTL + سمة داكنة + خطوط عربية (Cairo) + تذييل إنستغرام
 │   ├── not-found.tsx                   # 404 عربي أنيق
 │   ├── page.tsx                        # Hero ترحيبي (Motion)
-│   ├── menu/page.tsx                   # شبكة الأصناف (صور)
-│   ├── menu/[slug]/page.tsx            # منتجات صنف (يفلتر المخفي isHidden) + تمرير المكونات
+│   ├── menu/page.tsx                   # شبكة الأصناف (بطاقات مربعة، عمودان على الهاتف؛ يفلتر isHidden)
+│   ├── menu/[slug]/page.tsx            # منتجات صنف (يفلتر المخفي isHidden) + 404 للصنف المخفي + تمرير المكونات
 │   ├── orders/actions.ts               # placeOrderAction: تحقق/حساب سعر خادمي + تخزين الطلب
 │   ├── admin/page.tsx                  # تسجيل دخول (بوابة: مصادق → /dashboard)
-│   ├── admin/actions.ts                # Server Actions محروسة: login/logout/CRUD/مكونات/صورة صنف/حذف طلب/إخفاء-إظهار (رفع ملفات)
-│   ├── admin/dashboard/page.tsx        # شبكة الأصناف (بطاقات → صفحات الأصناف) (بوابة: غير مصادق → /admin)
-│   ├── admin/categories/[slug]/page.tsx# صفحة صنف مستقلة: صورة + أطباق + مكونات + لوحة الرؤية (بوابة: غير مصادق → /admin)
+│   ├── admin/actions.ts                # Server Actions محروسة: login/logout/CRUD/مكونات/صورة صنف/حذف طلب/إخفاء-إظهار/إدارة أصناف (رفع ملفات؛ حارس ملف-فارغ)
+│   ├── admin/dashboard/page.tsx        # قائمة الأصناف: Drag & Drop ترتيب + إضافة/تعديل/إخفاء/إظهار/حذف (بوابة: غير مصادق → /admin)
+│   ├── admin/categories/[slug]/page.tsx# صفحة صنف مستقلة: لوحة إدارة الصنف + صورة + أطباق بأقسام أكورديون (بوابة: غير مصادق → /admin)
 │   └── admin/orders/page.tsx           # قائمة طلبات الزبائن (بوابة: غير مصادق → /admin)
 ├── components/
-│   ├── menu-ui.tsx                     # Hero, بطاقة صنف (صورة), بطاقة منتج + نافذة تخصيص المكونات (أساسية/إضافات، إلزامية 🔒)
+│   ├── menu-ui.tsx                     # Hero, بطاقة صنف مربعة (aspect-square)، بطاقة منتج + نافذة تخصيص المكونات (أساسية/إضافات، إلزامية 🔒)
 │   ├── cart.tsx                        # CartProvider + SiteHeader + درج السلة (تأكيد طلب → orders)
 │   ├── admin-theme.tsx                 # يبدّل نطاق `html.admin-light` لصفحات /admin (واجهة ادمن فاتحة دون لمس الزبون)
-│   └── admin-ui.tsx                    # نماذج/جداول الادمن (useActionState) + مدير مكونات (أقسام + إلزامي) + لوحة رؤية (إخفاء/إظهار) + الطلبات
+│   └── admin-ui.tsx                    # نماذج/جداول الادمن (useActionState) + Reorder للأصناف (Drag & Drop) + لوحة إدارة صنف + أكورديون أطباق (معلومات/مكونات/إضافات/خيارات أخرى) + لوحة رؤية (إخفاء/إظهار) + الطلبات
 ├── lib/
-│   ├── db.ts                           # طبقة بيانات async مزدوجة: node:sqlite محلياً / Turso (TURSO_URL) — schema idempotent + ترحيل imageUrl/isRequired/isHidden + CRUD مصنف + إخفاء/إظهار جماعي
+│   ├── db.ts                           # طبقة بيانات async مزدوجة: node:sqlite محلياً / Turso (TURSO_URL) — schema idempotent + ترحيل imageUrl/isRequired/isHidden + CRUD صنف (create/update/delete/reorder) + إخفاء/إظهار جماعي
 │   ├── upload.ts                       # رفع صور من الجهاز: تحقق صيغة/حجم (حد 4MB) → public/uploads
 │   ├── session.ts                      # HMAC sign/verify + verifyPassword (HttpOnly)
 │   ├── cart.ts                         # منطق سلة نقي: count/total/formatOrderLine (قابل للاختبار)
@@ -54,7 +54,7 @@ restaurant-menu/
 │   └── utils.ts                        # RESTAURANT_NAME + تنسيق السعر (CURRENCY دج من env)
 ├── scripts/
 │   ├── seed.ts                         # 4 أصناف بصور + 19 منتج + مكونات أمثلة (idempotent)
-│   └── smoke.ts                        # تحقق آلي: بيانات + CRUD + مكونات + طلبات + سلة + مصادقة
+│   └── smoke.ts                        # تحقق آلي: بيانات + CRUD + مكونات + طلبات + سلة + مصادقة + CRUD صنف/ترتيب/حذف متسلسل
 ├── data/                               # menu.db (SQLite) — مُستبعد من git
 ├── logs/                               # app.log — مُستبعد من git
 ├── public/
@@ -64,7 +64,7 @@ restaurant-menu/
 مبادئ: تقسيم حسب النطاق (Domain-Driven)؛ `lib/` فقط للمنطق المتكرر فعلياً؛ لا Micro-files؛ لا مسارات API — Server Actions فقط؛ Zero feature creep.
 
 **Schema (SQLite):**
-- `Category`: id, slug(unique), nameAr, icon(emoji), imageUrl, sortOrder
+- `Category`: id, slug(unique), nameAr, icon(emoji), imageUrl, **isHidden(0/1 — مخفي من منيو الزبون)**, sortOrder
 - `Product`: id, categoryId(FK→Category ON DELETE CASCADE), name, description, priceCents(Int), imageUrl, isAvailable(0/1), **isHidden(0/1 — مخفي من منيو الزبون)**, sortOrder
 - `Ingredient`: id, productId(FK→Product ON DELETE CASCADE), name, priceCents, isExtra(0 أساسي/1 إضافة بسعر), **isRequired(0/1 إلزامي لا يُزال)**, sortOrder
 - `orders`: id, items(TEXT=JSON array من بنود منسّقة), totalCents, createdAt
@@ -89,9 +89,10 @@ restaurant-menu/
 - [x] **M14 نشر حقيقي: GitHub + Turso + Vercel** — المستودع على GitHub (`oubchirmohamedsaid-code/restaurant-menu`، فرع `main`)؛ قاعدة Turso `restaurant-menu` (URL+Token في `.env` المحلي فقط، gitignored)؛ تُحقّق Turso باختبار HTTP كامل (كل المسارات 200) وسموك خضراء. **النشر الحي يعمل والـ auto-deploy من GitHub مُثبَت** (اختبار شارة v1.0).
 - [x] **M14b الصور السحابية (Vercel Blob)** — إضافة طبق/تعديل في الادمن كان يكسر الموقع على Vercel لأن `public/uploads` للقراءة فقط؛ الآن `saveImageUpload` يرفع إلى **Vercel Blob** تلقائياً عند وجود `BLOB_READ_WRITE_TOKEN` (مرتبط تلقائياً بالمشروع من Storage)، مع بقاء الحفظ المحلي احتياطياً، وحذف الصورة القديمة عند الاستبدال/الحذف. أُضيف `*.public.blob.vercel-storage.com` إلى `images.remotePatterns`.
 - [x] **M15 إخفاء/إظهار المنتجات + واجهة ادمن فاتحة** — عمود `isHidden` مستقل عن `isAvailable` (ترحيل idempotent على Turso والمحلي)؛ في صفحة الصنف: زر «إخفاء المنتجات غير المتوفرة» (يبحث عن كل طبق `isAvailable=0` غير مخفي، تأكيد بالعدد، رسالة نجاح/لا-يوجد) + «إظهار المنتجات المخفية» (اختيار يدوي بمربعات). منيو الزبون يفلتر `isHidden=1` و`placeOrderAction` يرفضها. الثيم الفاتح للادمن عبر `html.admin-light` (يتجاوز CSS vars) يبدّله `AdminTheme` (usePathname) — بلا مساس بواجهة الزبون.
+- [x] **M16 بطاقات مربعة + إدارة أصناف كاملة + أطباق بأقسام أكورديون** — (1) بطاقات أصناف مربعة `aspect-square` للزبون والأدمن، والاسم ظاهر دائماً فوق الصورة؛ (2) هاتف الزبون = `grid-cols-2` بالضبط ثم `sm:3`/`lg:4`؛ (3) إدارة أصناف كاملة في الأدمن: إضافة (اسم+أيقونة+صورة اختيارية، slug مولّد آلياً) / تعديل اسم / تغيير صورة / إخفاء/إظهار (`Category.isHidden` جديد بترحيل idempotent) / حذف متسلسل (ينظّف صور الأطباق والصنف ثم يعيد للتوجيه للوحة) / ترتيب Drag & Drop عبر `Reorder` من motion (أزرار حفظ الترتيب عند التغيير)؛ (4) صفحة تعديل الطبق صارت أقسام أكورديون متحركة (`AnimatePresence`): «معلومات الطبق» مفتوح + «المكونات»/«الإضافات»/«خيارات أخرى» مغلقة؛ مكونات وإضافات لكل طبق بمعزل تام؛ (5) تعديل السعر دون رفع صورة (حقل صورة اختياري + حارس «ملف فارغ = لا رفع» في `uploadImageField`) مع إبقاء الصورة الحالية؛ (6) حفظ جزئي آمن (UPDATE موجه بالـ id فقط، لا يمسح شيئاً) + حالة حفظ «تم الحفظ ✓» + تعطيل مزدوج الإرسال عبر `pending`. الزبون: الصنف المخفي يغيب من `/menu` و404 في `/menu/[slug]`.
 - [ ] **ربط Vercel** — متحقّق: المشروع مستورد من GitHub، المتغيرات الأربعة (TURSO_URL/TURSO_TOKEN/ADMIN_PASSWORD/SESSION_SECRET) + BLOB_READ_WRITE_TOKEN مضبوطة، auto-deploy يعمل. (بقيت: تحقق نهائي من تعديل الادمن مع رفع صورة على الرابط الحي.)
 - [ ] صور المنتجات المبدئية من `images.unsplash.com` (مخاطرة Hotlinking) — الادمن يستبدلها برابطه؛ **رفع ملفات خارج النطاق** (معيار متفق عليه).
-- [ ] CRUD للأصناف نفسها — **خارج النطاق** عمداً (الأصناف مُزرعة وثابتة؛ يُعدّل رابط صورتها فقط).
+- [x] **CRUD للأصناف نفسها** — تحقق كاملاً في **M16**: إضافة/تعديل/إخفاء/إظهار/حذف/ترتيب Drag & Drop. (كان خارج النطاق سابقاً لأن الأصناف مزرعة وثابتة؛ أصبح إدارة كاملة لأن صاحب المطعم يحتاجها.)
 - [ ] حالة/عرض وتأكيد الطلب من الزبون أو حالة (جديد/مكتمل) في الادمن — **خارج النطاق** حالياً (الطلبات مخزّنة تُعرض وتُحذف فقط).
 
 ### سجل القرارات (Decisions Log)
@@ -111,3 +112,9 @@ restaurant-menu/
 - **الملفات على Vercel للقراءة فقط**: لا تُنشئ مجلدات/ملفات عند التحميل (logger يكتب للـ console عند الفشل)؛ الصور المرفوعة من الادمن تذهب إلى Vercel Blob (وليس `public/uploads`).
 - **الإخفاء ≠ عدم التوفّر**: `isHidden` مستقل تماماً عن `isAvailable`؛ غير المتوفر يبقى ظاهراً معتماً في المنيو، والمخفي يختفي كلياً دون حذف. إظهاره لاحقاً إجراء يدوي صريح. `UPDATE ... WHERE categoryId=? AND isAvailable=0 AND isHidden=0` للدفعة، و`IN (...)` مع `changes` (أُضيف لحقل نتيجة `run`) للعدد الحقيقي المتأثر.
 - **ثيم الادمن الفاتح معزول**: `html.admin-light` يعيد تعريف متغيرات CSS فقط (لوحة فاتحة/كروت بيضاء/حدود فاتحة/نصوص رمادية داكنة/ظلال) فينعكس على كل صفحة `/admin` والترويسة/التذييل المشتركة عبر `AdminTheme`؛ الزبون يبقى على السمة الداكنة كما هو.
+- **بطاقات الأصناف المربعة**: `aspect-square` للزبون والأدمن مع `object-cover`؛ اسم الصنف ظاهر دائماً في شريط تدرّج أسفل البطاقة (ليس عند التمرير فقط)؛ الهاتف `grid-cols-2` بالضبط لأنه الاستخدام الأكثر (مسح ضوئي سريع).
+- **ترتيب الأصناف بالـ Drag & Drop**: `Reorder.Group` (axis="y") من motion مع `useDragControls` كمقبض سحب منفصل (حتى لا يتعارض السحب مع حقول النماذج في الصف)؛ الترتيب يُحفظ فقط بزر «حفظ الترتيب» الذي يظهر عند تغيّر الترتيب (`dirty`) لتفادي كتابة عشوائية على كل سحب.
+- **إدارة الأصناف عمودياً**: لوحة التحكم صارت قائمة صفوف (صورة مربعة + اسم قابل للتعديل + إخفاء/إظهار + عدد + حذف) بدل شبكة البطاقات — لأن السحب العمودي لا يعمل مع شبكة متعددة الأعمدة؛ «حذف الصنف» يستخدم FK CASCADE (Category→Product→Ingredient) وينظّف صور الأطباق والصنف ثم `redirect` للوحة.
+- **slug للأصناف الجديدة**: `makeCategorySlug` يعرّب أسماء عربية شائعة (المقبلات→starters…) ويقعّد `category-<timestamp>` للبقية (فريد تلقائياً)؛ لا يُترجم بعد إعادة التسمية (الـ slug ثابت).
+- **تعديل السعر دون صورة**: `uploadImageField` تعيد `null` إذا كان `raw.size === 0` (ملف فارغ = لا اختيار) — فيبقى `updateProductAction` محتفظاً بـ `existing.imageUrl`؛ نفس الحارس يخدم إضافة الأصناف بصورة اختيارية.
+- **صفحة تعديل الطبق أكورديون**: كل طبق = 4 أقسام قابلة للطي بحركة (`AnimatePresence` + ارتفاع تلقائي): «معلومات الطبق» مفتوح افتراضياً و«المكونات»/«الإضافات»/«خيارات أخرى» مغلقة لتقليل طول الصفحة؛ المكونات والإضافات تعرض فقط ما يخص هذا الطبق (`productId`). «خيارات أخرى» تضم حذف الطبق. منع الإرسال المزدوج عبر `disabled={pending}` لكل الأزرار + رسالة «تم الحفظ ✓».

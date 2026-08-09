@@ -4,9 +4,11 @@ import { existsSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import {
   countAll,
+  createCategory,
   createIngredient,
   createOrder,
   createProduct,
+  deleteCategory,
   deleteIngredient,
   deleteOrder,
   deleteProduct,
@@ -17,7 +19,9 @@ import {
   listIngredientsByProduct,
   listOrders,
   listProductsByCategory,
+  reorderCategories,
   showHiddenProducts,
+  updateCategory,
   updateCategoryImage,
   updateIngredient,
   updateProduct,
@@ -37,6 +41,12 @@ async function main() {
   assert.strictEqual(verifySessionToken(undefined), false, "missing token must fail");
   assert.strictEqual(verifySessionToken("tampered.token"), false, "tampered token must fail");
   console.log("✓ auth password + session verified");
+
+  // --- cleanup leftovers from aborted runs ---
+  for (const leftover of await listCategories()) {
+    if (leftover.slug.startsWith("smoke-cat-")) await deleteCategory(leftover.id);
+  }
+  console.log("✓ leftover smoke categories cleaned");
 
   // --- seed + currency + category images ---
   const cats = await listCategories();
@@ -65,6 +75,76 @@ async function main() {
   );
   await updateCategoryImage(pizza.id, originalPizzaImage);
   console.log("✓ category image update verified");
+
+  // --- category CRUD + hide/show + reorder (non-destructive: restores order) ---
+  const origOrder = (await listCategories()).map((c) => c.id);
+  const tempSlug = `smoke-cat-${Date.now()}`;
+  await createCategory({
+    slug: tempSlug,
+    nameAr: "صنف اختبار تلقائي",
+    icon: "🧪",
+    imageUrl: "",
+    sortOrder: 9999,
+  });
+  const tempCat = await getCategoryBySlug(tempSlug);
+  assert.ok(tempCat, "created category must be readable by slug");
+  assert.strictEqual(tempCat.nameAr, "صنف اختبار تلقائي");
+
+  await updateCategory(tempCat.id, { nameAr: "صنف اختبار معدّل", isHidden: 1 });
+  const renamed = await getCategoryBySlug(tempSlug);
+  assert.ok(renamed, "renamed category must still be found by slug");
+  assert.strictEqual(renamed.nameAr, "صنف اختبار معدّل");
+  assert.strictEqual(renamed.isHidden, 1, "category must become hidden");
+  await updateCategory(tempCat.id, { nameAr: "صنف اختبار معدّل", isHidden: 0 });
+  assert.strictEqual(
+    (await getCategoryBySlug(tempSlug))!.isHidden,
+    0,
+    "category must be visible again",
+  );
+
+  await reorderCategories([tempCat.id, ...origOrder]);
+  assert.strictEqual(
+    (await listCategories())[0].id,
+    tempCat.id,
+    "reorder must move temp category to the front",
+  );
+  await reorderCategories([...origOrder, tempCat.id]);
+  assert.deepStrictEqual(
+    (await listCategories()).slice(0, origOrder.length).map((c) => c.id),
+    origOrder,
+    "reorder must restore original order",
+  );
+
+  const tempProductId = await createProduct({
+    categoryId: tempCat.id,
+    name: "طبق في صنف اختبار",
+    description: "للتحقق من الحذف المتسلسل",
+    priceCents: 500,
+    imageUrl: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd",
+    isAvailable: 1,
+  });
+  await deleteCategory(tempCat.id);
+  assert.strictEqual(
+    (await getCategoryBySlug(tempSlug)),
+    undefined,
+    "deleted category must be gone",
+  );
+  assert.strictEqual(
+    (await listProductsByCategory(tempCat.id)).length,
+    0,
+    "cascade delete must remove the category's products",
+  );
+  assert.strictEqual(
+    (await getProductById(tempProductId)),
+    undefined,
+    "cascade delete must remove the temp product",
+  );
+  assert.strictEqual(
+    (await listCategories()).length,
+    origOrder.length,
+    "category count must be restored after delete",
+  );
+  console.log("✓ category CRUD + hide/show + reorder + cascade delete verified");
 
   // --- product CRUD ---
   const before = await listProductsByCategory(pizza.id);

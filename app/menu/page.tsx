@@ -8,7 +8,8 @@ export const metadata = { title: "المنيو | مطعم الذواقة" };
 
 export default async function MenuPage() {
   const categories = await listCategoriesWithCounts();
-  logger.info("menu page rendered", { categories: categories.length });
+  const visible = categories.filter((c) => c.isHidden === 0);
+  logger.info("menu page rendered", { categories: visible.length });
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
@@ -18,8 +19,8 @@ export default async function MenuPage() {
         <p className="mt-3 text-muted">اضغط على أي صنف لتشاهد منتجاته</p>
       </header>
 
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        {categories.map((c) => (
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 lg:grid-cols-4">
+        {visible.map((c) => (
           <CategoryCard
             key={c.id}
             slug={c.slug}

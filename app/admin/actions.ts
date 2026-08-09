@@ -4,15 +4,21 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createSessionToken, verifyPassword, verifySessionToken } from "@/lib/session";
 import {
+  createCategory,
   createIngredient,
   createProduct,
+  deleteCategory,
   deleteIngredient,
   deleteOrder,
   deleteProduct,
   getCategoryById,
   getProductById,
   hideUnavailableProducts,
+  listCategories,
+  listProductsByCategory,
+  reorderCategories,
   showHiddenProducts,
+  updateCategory,
   updateCategoryImage,
   updateIngredient,
   updateProduct,
@@ -21,6 +27,28 @@ import { saveImageUpload, deleteStoredImage } from "@/lib/upload";
 import { logger } from "@/lib/logger";
 
 const SESSION_COOKIE = "admin_session";
+
+const AR_TO_EN: Record<string, string> = {
+  "المشروبات": "drinks",
+  "البيتزا": "pizza",
+  "البرجر": "burgers",
+  "الحلويات": "desserts",
+  "المقبلات": "starters",
+  "السلطات": "salads",
+  "الشاورما": "shawarma",
+  "المأكولات البحرية": "seafood",
+  "الأطباق الرئيسية": "mains",
+  "المعجنات": "pastries",
+  "الإفطار": "breakfast",
+  "الغداء": "lunch",
+  "العشاء": "dinner",
+};
+
+function makeCategorySlug(nameAr: string): string {
+  const known = AR_TO_EN[nameAr.trim()];
+  if (known) return known;
+  return `category-${Date.now().toString(36)}`;
+}
 
 function sessionCookieOptions() {
   return {
@@ -82,6 +110,7 @@ async function uploadImageField(
   const raw = formData.get(field);
   if (!raw) return null;
   if (!(raw instanceof File)) return { error: "ملف الصورة غير صالح" };
+  if (raw.size === 0) return null;
   return saveImageUpload(new Uint8Array(await raw.arrayBuffer()), raw.name);
 }
 
@@ -241,4 +270,87 @@ export async function showHiddenProductsAction(
   const count = await showHiddenProducts(categoryId, ids);
   logger.info("products shown again", { categoryId, count });
   return { ok: true, count };
+}
+
+export async function createCategoryAction(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  if (!(await isAdmin())) redirect("/admin");
+  const nameAr = String(formData.get("nameAr") ?? "").trim();
+  const icon = String(formData.get("icon") ?? "🍽️").trim() || "🍽️";
+  const image = await uploadImageField(formData);
+  if (!nameAr) return { error: "اسم الصنف مطلوب" };
+  if (image && "error" in image) return { error: image.error };
+
+  const categories = await listCategories();
+  const sortOrder = categories.length > 0 ? Math.max(...categories.map((c) => c.sortOrder)) + 1 : 0;
+  const slug = makeCategorySlug(nameAr);
+  await createCategory({
+    slug,
+    nameAr,
+    icon,
+    imageUrl: image && "path" in image ? image.path : "",
+    sortOrder,
+  });
+  logger.info("category created", { nameAr, slug });
+  return { ok: true };
+}
+
+export async function updateCategoryAction(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  if (!(await isAdmin())) redirect("/admin");
+  const id = Number(formData.get("id"));
+  const existing = await getCategoryById(id);
+  if (!existing) return { error: "الصنف غير موجود" };
+
+  const nameAr = String(formData.get("nameAr") ?? existing.nameAr).trim();
+  const isHidden = parseBool(formData.get("isHidden"));
+  const image = await uploadImageField(formData);
+  if (!nameAr) return { error: "اسم الصنف مطلوب" };
+  if (image && "error" in image) return { error: image.error };
+
+  await updateCategory(id, { nameAr, isHidden });
+  if (image && "path" in image && image.path !== existing.imageUrl) {
+    await updateCategoryImage(id, image.path);
+    if (existing.imageUrl) await deleteStoredImage(existing.imageUrl);
+  }
+  logger.info("category updated", { id, nameAr, isHidden });
+  return { ok: true };
+}
+
+export async function deleteCategoryAction(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  if (!(await isAdmin())) redirect("/admin");
+  const id = Number(formData.get("id"));
+  const existing = await getCategoryById(id);
+  if (!existing) return { error: "الصنف غير موجود" };
+
+  const products = await listProductsByCategory(id);
+  await deleteCategory(id);
+  for (const p of products) {
+    if (p.imageUrl) await deleteStoredImage(p.imageUrl);
+  }
+  if (existing.imageUrl) await deleteStoredImage(existing.imageUrl);
+  logger.info("category deleted", { id, products: products.length });
+  redirect("/admin/dashboard");
+}
+
+export async function reorderCategoriesAction(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  if (!(await isAdmin())) redirect("/admin");
+  const ids = formData
+    .getAll("ids")
+    .map((v) => Number(v))
+    .filter((id) => Number.isInteger(id) && id > 0);
+  if (ids.length === 0) return { error: "لا توجد أصناف لإعادة ترتيبها" };
+  await reorderCategories(ids);
+  logger.info("categories reordered", { ids });
+  return { ok: true };
 }

@@ -112,7 +112,13 @@ async function main() {
   await clearAll();
   for (let ci = 0; ci < seed.length; ci++) {
     const cat = seed[ci];
-    const categoryId = await createCategory(cat.slug, cat.nameAr, cat.icon, cat.imageUrl, ci);
+    const categoryId = await createCategory({
+      slug: cat.slug,
+      nameAr: cat.nameAr,
+      icon: cat.icon,
+      imageUrl: cat.imageUrl,
+      sortOrder: ci,
+    });
     for (const p of cat.products) {
       const productId = await createProduct({ ...p, categoryId, isAvailable: 1 });
       total += 1;

@@ -16,8 +16,8 @@ export default async function CategoryPage({
 }) {
   const { slug } = await params;
   const category = await getCategoryBySlug(slug);
-  if (!category) {
-    logger.warn("category not found", { slug });
+  if (!category || category.isHidden === 1) {
+    logger.warn("category not found or hidden", { slug });
     notFound();
   }
 
