@@ -15,7 +15,7 @@ import {
   updateIngredient,
   updateProduct,
 } from "@/lib/db";
-import { saveImageUpload } from "@/lib/upload";
+import { saveImageUpload, deleteStoredImage } from "@/lib/upload";
 import { logger } from "@/lib/logger";
 
 const SESSION_COOKIE = "admin_session";
@@ -127,6 +127,9 @@ export async function updateProductAction(
   const imageUrl = image && "path" in image ? image.path : existing.imageUrl;
 
   await updateProduct(id, { categoryId, name, description, priceCents, imageUrl, isAvailable });
+  if (image && "path" in image && image.path !== existing.imageUrl) {
+    await deleteStoredImage(existing.imageUrl);
+  }
   logger.info("product updated", { id, name, priceCents });
   return { ok: true };
 }
@@ -137,7 +140,9 @@ export async function deleteProductAction(
 ): Promise<ActionResult> {
   if (!(await isAdmin())) redirect("/admin");
   const id = Number(formData.get("id"));
+  const existing = await getProductById(id);
   await deleteProduct(id);
+  if (existing) await deleteStoredImage(existing.imageUrl);
   logger.info("product deleted", { id });
   return { ok: true };
 }
@@ -148,10 +153,14 @@ export async function updateCategoryImageAction(
 ): Promise<ActionResult> {
   if (!(await isAdmin())) redirect("/admin");
   const id = Number(formData.get("id"));
+  const existing = await getCategoryById(id);
   const image = await uploadImageField(formData);
   if (!image) return { error: "صورة الصنف مطلوبة" };
   if ("error" in image) return { error: image.error };
   await updateCategoryImage(id, image.path);
+  if (existing && existing.imageUrl !== image.path) {
+    await deleteStoredImage(existing.imageUrl);
+  }
   logger.info("category image updated", { id });
   return { ok: true };
 }

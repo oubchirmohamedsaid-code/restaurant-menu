@@ -178,13 +178,13 @@ async function main() {
   console.log("✓ orders create/list/delete verified");
 
   // --- image upload helper ---
-  const upload = saveImageUpload(Buffer.from("fakepng"), "pic.png");
+  const upload = await saveImageUpload(Buffer.from("fakepng"), "pic.png");
   assert.ok("path" in upload && upload.path.startsWith("/uploads/"), "upload must return a /uploads path");
   assert.ok(existsSync(join(process.cwd(), "public", upload.path)), "uploaded file must exist on disk");
   unlinkSync(join(process.cwd(), "public", upload.path));
-  const badExt = saveImageUpload(Buffer.from("x"), "doc.exe");
+  const badExt = await saveImageUpload(Buffer.from("x"), "doc.exe");
   assert.ok("error" in badExt, "unsupported extension must be rejected");
-  const badSize = saveImageUpload(new Uint8Array(5 * 1024 * 1024), "big.jpg");
+  const badSize = await saveImageUpload(new Uint8Array(5 * 1024 * 1024), "big.jpg");
   assert.ok("error" in badSize, "oversized file must be rejected");
   console.log("✓ image upload helper verified");
 
