@@ -30,6 +30,7 @@ export default function RootLayout({
               <p>
                 © {new Date().getFullYear()} {RESTAURANT_NAME} — جميع الحقوق محفوظة
               </p>
+              <p className="text-xs opacity-70">نسخة تجريبية v1.0</p>
               <a
                 href="https://www.instagram.com/sole_.vibes/?hl=en"
                 target="_blank"
