@@ -12,10 +12,12 @@ import {
   deleteProduct,
   getCategoryBySlug,
   getProductById,
+  hideUnavailableProducts,
   listCategories,
   listIngredientsByProduct,
   listOrders,
   listProductsByCategory,
+  showHiddenProducts,
   updateCategoryImage,
   updateIngredient,
   updateProduct,
@@ -116,6 +118,34 @@ async function main() {
   assert.strictEqual(updated.priceCents, 1234);
   assert.strictEqual(updated.isAvailable, 0);
   console.log("✓ CRUD create/update verified");
+
+  // --- hide/show products (non-destructive: restores prior hidden state) ---
+  const origHiddenIds = (await listProductsByCategory(pizza.id))
+    .filter((p) => p.isHidden === 1)
+    .map((p) => p.id);
+  const hiddenCount = await hideUnavailableProducts(pizza.id);
+  assert.ok(hiddenCount >= 1, "bulk hide must mark at least the unavailable test product");
+  assert.strictEqual(
+    (await getProductById(created.id))!.isHidden,
+    1,
+    "unavailable product must become hidden",
+  );
+  const nowHiddenIds = (await listProductsByCategory(pizza.id))
+    .filter((p) => p.isHidden === 1)
+    .map((p) => p.id);
+  const toRestore = nowHiddenIds.filter((id) => !origHiddenIds.includes(id));
+  const shownCount = await showHiddenProducts(pizza.id, toRestore);
+  assert.strictEqual(
+    shownCount,
+    toRestore.length,
+    "restore must unhide exactly the newly hidden products",
+  );
+  assert.strictEqual(
+    (await getProductById(created.id))!.isHidden,
+    0,
+    "product must be visible again",
+  );
+  console.log("✓ hide/show products (isHidden) verified");
 
   await deleteProduct(created.id);
   assert.strictEqual(

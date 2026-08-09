@@ -21,7 +21,9 @@ export default async function CategoryPage({
     notFound();
   }
 
-  const products = await listProductsByCategory(category.id);
+  const products = (await listProductsByCategory(category.id)).filter(
+    (p) => p.isHidden !== 1,
+  );
   const ingredientsByProduct = new Map(
     await Promise.all(
       products.map(async (p) => [p.id, await listIngredientsByProduct(p.id)] as const),

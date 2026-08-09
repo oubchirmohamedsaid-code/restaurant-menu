@@ -11,9 +11,11 @@ import {
   deleteIngredientAction,
   deleteOrderAction,
   deleteProductAction,
+  hideUnavailableProductsAction,
   loginAction,
   logoutAction,
   saveIngredientAction,
+  showHiddenProductsAction,
   updateCategoryImageAction,
   updateProductAction,
 } from "@/app/admin/actions";
@@ -537,6 +539,157 @@ export function OrdersView({ orders }: { orders: OrderRow[] }) {
   );
 }
 
+function VisibilityPanel({
+  category,
+  products,
+}: {
+  category: CategoryWithCount;
+  products: ProductWithIngredients[];
+}) {
+  const router = useRouter();
+  const unavailable = products.filter((p) => p.isAvailable === 0 && p.isHidden !== 1);
+  const hidden = products.filter((p) => p.isHidden === 1);
+  const [showList, setShowList] = useState(false);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [hideState, hideAction, hidePending] = useActionState<ActionResult, FormData>(
+    hideUnavailableProductsAction,
+    {},
+  );
+  const [showState, showAction, showPending] = useActionState<ActionResult, FormData>(
+    showHiddenProductsAction,
+    {},
+  );
+
+  useEffect(() => {
+    if (hideState.ok) router.refresh();
+  }, [hideState, router]);
+
+  useEffect(() => {
+    if (showState.ok) router.refresh();
+  }, [showState, router]);
+
+  const toggleSelected = (id: number) =>
+    setSelected((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+
+  return (
+    <section className="mt-8 rounded-3xl border border-line bg-card p-5">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-extrabold">الرؤية في منيو الزبون</h2>
+          <p className="mt-1 text-sm text-muted">
+            {hidden.length} منتج مخفي · {unavailable.length} غير متوفر ظاهر حالياً
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <form action={hideAction}>
+            <input type="hidden" name="categoryId" value={category.id} />
+            <button
+              type="submit"
+              disabled={hidePending || unavailable.length === 0}
+              onClick={(e) => {
+                if (unavailable.length === 0) return;
+                if (!window.confirm(`إخفاء ${unavailable.length} منتج غير متوفر من منيو الزبون؟`))
+                  e.preventDefault();
+              }}
+              className={`${btnPrimary} disabled:opacity-50`}
+            >
+              {hidePending
+                ? "جارٍ الإخفاء…"
+                : unavailable.length === 0
+                  ? "لا توجد منتجات غير متوفرة"
+                  : "إخفاء المنتجات غير المتوفرة"}
+            </button>
+          </form>
+          <button type="button" onClick={() => setShowList((v) => !v)} className={btnGhost}>
+            {showList ? "إغلاق القائمة" : `إظهار المنتجات المخفية (${hidden.length})`}
+          </button>
+        </div>
+      </div>
+
+      {hideState.ok && (
+        <p className="mt-4 rounded-xl bg-green-500/10 px-3 py-2 text-sm font-bold text-green-400">
+          {hideState.count && hideState.count > 0
+            ? `تم إخفاء ${hideState.count} منتج من منيو الزبون ✓`
+            : "لا توجد منتجات غير متوفرة لإخفائها"}
+        </p>
+      )}
+      {hideState.error && (
+        <div className="mt-4">
+          <Feedback error={hideState.error} />
+        </div>
+      )}
+
+      {showList &&
+        (hidden.length === 0 ? (
+          <p className="mt-4 rounded-xl bg-line/60 px-3 py-2 text-sm font-bold text-muted">
+            لا توجد منتجات مخفية حالياً
+          </p>
+        ) : (
+          <form action={showAction} className="mt-4">
+            <input type="hidden" name="categoryId" value={category.id} />
+            <ul className="space-y-2">
+              {hidden.map((p) => (
+                <li
+                  key={p.id}
+                  className="flex items-center gap-3 rounded-xl border border-line bg-background p-2"
+                >
+                  <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
+                    <input
+                      type="checkbox"
+                      name="ids"
+                      value={p.id}
+                      checked={selected.has(p.id)}
+                      onChange={() => toggleSelected(p.id)}
+                      className="h-4 w-4 shrink-0 accent-amber-400"
+                    />
+                    <Image
+                      src={p.imageUrl}
+                      alt={p.name}
+                      width={40}
+                      height={40}
+                      className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                    />
+                    <span className="truncate font-bold">{p.name}</span>
+                  </label>
+                  <span className="shrink-0 text-sm font-black text-accent">
+                    {formatPrice(p.priceCents)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {showState.ok && showState.count && showState.count > 0 && (
+              <p className="mt-3 rounded-xl bg-green-500/10 px-3 py-2 text-sm font-bold text-green-400">
+                تم إظهار {showState.count} منتج في منيو الزبون ✓
+              </p>
+            )}
+            {showState.error && (
+              <div className="mt-3">
+                <Feedback error={showState.error} />
+              </div>
+            )}
+            <button
+              type="submit"
+              disabled={showPending || selected.size === 0}
+              onClick={(e) => {
+                if (selected.size === 0) return;
+                if (!window.confirm(`إظهار ${selected.size} منتج في منيو الزبون؟`))
+                  e.preventDefault();
+              }}
+              className={`${btnPrimary} mt-4 disabled:opacity-50`}
+            >
+              {showPending ? "جارٍ الإظهار…" : `إظهار المحدد (${selected.size})`}
+            </button>
+          </form>
+        ))}
+    </section>
+  );
+}
+
 export function CategoryListView({ categories }: { categories: CategoryWithCount[] }) {
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -618,12 +771,14 @@ export function CategoryView({
 
       <CategoryImageForm category={category} />
 
-      <div className="mt-6 flex items-center justify-between">
+      <VisibilityPanel category={category} products={products} />
+
+      <div className="mt-10 flex items-center justify-between border-b border-line pb-4">
         <h2 className="text-xl font-extrabold">الأطباق</h2>
         <AddProductForm categoryId={category.id} />
       </div>
 
-      <ul className="mt-4 space-y-4">
+      <ul className="mt-5 space-y-4">
         {products.map((p) => (
           <li key={p.id} className="rounded-2xl border border-line bg-surface p-4">
             <div className="mb-3 flex items-center justify-between gap-3">
@@ -636,7 +791,14 @@ export function CategoryView({
                   className="h-14 w-14 rounded-xl object-cover"
                 />
                 <div>
-                  <p className="font-extrabold">{p.name}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-extrabold">{p.name}</p>
+                    {p.isHidden === 1 && (
+                      <span className="rounded-full bg-line px-2.5 py-0.5 text-xs font-bold text-muted">
+                        مخفي
+                      </span>
+                    )}
+                  </div>
                   <p className="text-sm text-accent">{formatPrice(p.priceCents)}</p>
                 </div>
               </div>

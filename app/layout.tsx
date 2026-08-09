@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Cairo } from "next/font/google";
 import "./globals.css";
 import { CartProvider, SiteHeader, CartDrawer } from "@/components/cart";
+import { AdminTheme } from "@/components/admin-theme";
 import { RESTAURANT_NAME } from "@/lib/utils";
 
 const cairo = Cairo({
@@ -21,6 +22,7 @@ export default function RootLayout({
   return (
     <html lang="ar" dir="rtl" className={cairo.variable} suppressHydrationWarning>
       <body className="flex min-h-dvh flex-col bg-background text-foreground antialiased">
+        <AdminTheme />
         <CartProvider>
           <SiteHeader />
           <main className="flex-1">{children}</main>

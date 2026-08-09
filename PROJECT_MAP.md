@@ -1,6 +1,6 @@
 # PROJECT_MAP — Restaurant Menu (المنيو الإلكتروني)
 
-> آخر تحديث: 2026-08-08 | مسار الجذر: `restaurant-menu/` (مجلد فرعي، مجزول عن ملفات المتجر القائمة)
+> آخر تحديث: 2026-08-09 | مسار الجذر: `restaurant-menu/` (مجلد فرعي، مجزول عن ملفات المتجر القائمة)
 > سجل قرارات: **DB Runtime = `node:sqlite` محلياً + Turso (libSQL) على السحابة** — محلياً: `node:sqlite` (DatabaseSync) صفر تبعيات؛ عند النشر (Vercel): `@libsql/client` يتصل بقاعدة Turso عبر `TURSO_URL`/`TURSO_TOKEN`. الانتقال تلقائي في `lib/db.ts` (دوال async موحّدة).
 
 ## [TECH_STACK]
@@ -33,19 +33,20 @@ restaurant-menu/
 │   ├── not-found.tsx                   # 404 عربي أنيق
 │   ├── page.tsx                        # Hero ترحيبي (Motion)
 │   ├── menu/page.tsx                   # شبكة الأصناف (صور)
-│   ├── menu/[slug]/page.tsx            # منتجات صنف + تمرير المكونات
+│   ├── menu/[slug]/page.tsx            # منتجات صنف (يفلتر المخفي isHidden) + تمرير المكونات
 │   ├── orders/actions.ts               # placeOrderAction: تحقق/حساب سعر خادمي + تخزين الطلب
 │   ├── admin/page.tsx                  # تسجيل دخول (بوابة: مصادق → /dashboard)
-│   ├── admin/actions.ts                # Server Actions محروسة: login/logout/CRUD/مكونات/صورة صنف/حذف طلب (رفع ملفات)
+│   ├── admin/actions.ts                # Server Actions محروسة: login/logout/CRUD/مكونات/صورة صنف/حذف طلب/إخفاء-إظهار (رفع ملفات)
 │   ├── admin/dashboard/page.tsx        # شبكة الأصناف (بطاقات → صفحات الأصناف) (بوابة: غير مصادق → /admin)
-│   ├── admin/categories/[slug]/page.tsx# صفحة صنف مستقلة: صورة + أطباق + مكونات (بوابة: غير مصادق → /admin)
+│   ├── admin/categories/[slug]/page.tsx# صفحة صنف مستقلة: صورة + أطباق + مكونات + لوحة الرؤية (بوابة: غير مصادق → /admin)
 │   └── admin/orders/page.tsx           # قائمة طلبات الزبائن (بوابة: غير مصادق → /admin)
 ├── components/
 │   ├── menu-ui.tsx                     # Hero, بطاقة صنف (صورة), بطاقة منتج + نافذة تخصيص المكونات (أساسية/إضافات، إلزامية 🔒)
 │   ├── cart.tsx                        # CartProvider + SiteHeader + درج السلة (تأكيد طلب → orders)
-│   └── admin-ui.tsx                    # نماذج/جداول الادمن (useActionState) + مدير مكونات (أقسام + إلزامي) + الطلبات
+│   ├── admin-theme.tsx                 # يبدّل نطاق `html.admin-light` لصفحات /admin (واجهة ادمن فاتحة دون لمس الزبون)
+│   └── admin-ui.tsx                    # نماذج/جداول الادمن (useActionState) + مدير مكونات (أقسام + إلزامي) + لوحة رؤية (إخفاء/إظهار) + الطلبات
 ├── lib/
-│   ├── db.ts                           # طبقة بيانات async مزدوجة: node:sqlite محلياً / Turso (TURSO_URL) — schema idempotent + ترحيل imageUrl/isRequired + CRUD مصنف
+│   ├── db.ts                           # طبقة بيانات async مزدوجة: node:sqlite محلياً / Turso (TURSO_URL) — schema idempotent + ترحيل imageUrl/isRequired/isHidden + CRUD مصنف + إخفاء/إظهار جماعي
 │   ├── upload.ts                       # رفع صور من الجهاز: تحقق صيغة/حجم (حد 4MB) → public/uploads
 │   ├── session.ts                      # HMAC sign/verify + verifyPassword (HttpOnly)
 │   ├── cart.ts                         # منطق سلة نقي: count/total/formatOrderLine (قابل للاختبار)
@@ -64,7 +65,7 @@ restaurant-menu/
 
 **Schema (SQLite):**
 - `Category`: id, slug(unique), nameAr, icon(emoji), imageUrl, sortOrder
-- `Product`: id, categoryId(FK→Category ON DELETE CASCADE), name, description, priceCents(Int), imageUrl, isAvailable(0/1), sortOrder
+- `Product`: id, categoryId(FK→Category ON DELETE CASCADE), name, description, priceCents(Int), imageUrl, isAvailable(0/1), **isHidden(0/1 — مخفي من منيو الزبون)**, sortOrder
 - `Ingredient`: id, productId(FK→Product ON DELETE CASCADE), name, priceCents, isExtra(0 أساسي/1 إضافة بسعر), **isRequired(0/1 إلزامي لا يُزال)**, sortOrder
 - `orders`: id, items(TEXT=JSON array من بنود منسّقة), totalCents, createdAt
 
@@ -87,6 +88,7 @@ restaurant-menu/
 - [x] **M13 نافذة تخصيص أوسع وأوضح** — `ProductCustomizer` من `max-w-lg` إلى `max-w-2xl`؛ قسم أساسية/إضافات جنباً إلى جنب على الشاشات ≥sm (شبكة شرطية عند وجود القسمين فقط)؛ شرائح/صفوف/عناوين/إجمالي أكبر؛ بلا تغيير في منطق التخصيص.
 - [x] **M14 نشر حقيقي: GitHub + Turso + Vercel** — المستودع على GitHub (`oubchirmohamedsaid-code/restaurant-menu`، فرع `main`)؛ قاعدة Turso `restaurant-menu` (URL+Token في `.env` المحلي فقط، gitignored)؛ تُحقّق Turso باختبار HTTP كامل (كل المسارات 200) وسموك خضراء. **النشر الحي يعمل والـ auto-deploy من GitHub مُثبَت** (اختبار شارة v1.0).
 - [x] **M14b الصور السحابية (Vercel Blob)** — إضافة طبق/تعديل في الادمن كان يكسر الموقع على Vercel لأن `public/uploads` للقراءة فقط؛ الآن `saveImageUpload` يرفع إلى **Vercel Blob** تلقائياً عند وجود `BLOB_READ_WRITE_TOKEN` (مرتبط تلقائياً بالمشروع من Storage)، مع بقاء الحفظ المحلي احتياطياً، وحذف الصورة القديمة عند الاستبدال/الحذف. أُضيف `*.public.blob.vercel-storage.com` إلى `images.remotePatterns`.
+- [x] **M15 إخفاء/إظهار المنتجات + واجهة ادمن فاتحة** — عمود `isHidden` مستقل عن `isAvailable` (ترحيل idempotent على Turso والمحلي)؛ في صفحة الصنف: زر «إخفاء المنتجات غير المتوفرة» (يبحث عن كل طبق `isAvailable=0` غير مخفي، تأكيد بالعدد، رسالة نجاح/لا-يوجد) + «إظهار المنتجات المخفية» (اختيار يدوي بمربعات). منيو الزبون يفلتر `isHidden=1` و`placeOrderAction` يرفضها. الثيم الفاتح للادمن عبر `html.admin-light` (يتجاوز CSS vars) يبدّله `AdminTheme` (usePathname) — بلا مساس بواجهة الزبون.
 - [ ] **ربط Vercel** — متحقّق: المشروع مستورد من GitHub، المتغيرات الأربعة (TURSO_URL/TURSO_TOKEN/ADMIN_PASSWORD/SESSION_SECRET) + BLOB_READ_WRITE_TOKEN مضبوطة، auto-deploy يعمل. (بقيت: تحقق نهائي من تعديل الادمن مع رفع صورة على الرابط الحي.)
 - [ ] صور المنتجات المبدئية من `images.unsplash.com` (مخاطرة Hotlinking) — الادمن يستبدلها برابطه؛ **رفع ملفات خارج النطاق** (معيار متفق عليه).
 - [ ] CRUD للأصناف نفسها — **خارج النطاق** عمداً (الأصناف مُزرعة وثابتة؛ يُعدّل رابط صورتها فقط).
@@ -107,3 +109,5 @@ restaurant-menu/
 - **صفحات الأصناف الادمن**: `/admin/dashboard` مجرد شبكة بطاقات؛ كل صنف له صفحته `/admin/categories/[slug]` كي تنمو أقسام كل صنف دون ازدحام صفحة واحدة.
 - **Turso/Vercel**: `node:sqlite` مدمج يعمل محلياً فقط (ملف) ولا يعمل على Vercel؛ لذلك أُضيفت طبقة `@libsql/client` (async) مع `getDb()` يقرر تلقائياً بناءً على `TURSO_URL`. كل الدوال/السكربتات تحوّلت إلى async بواجهة واحدة؛ السكربتات داخل `async main()`. النشر على Vercel يحتاج `TURSO_URL` + `TURSO_TOKEN` (+ `ADMIN_PASSWORD` + `SESSION_SECRET`) في متغيرات البيئة.
 - **الملفات على Vercel للقراءة فقط**: لا تُنشئ مجلدات/ملفات عند التحميل (logger يكتب للـ console عند الفشل)؛ الصور المرفوعة من الادمن تذهب إلى Vercel Blob (وليس `public/uploads`).
+- **الإخفاء ≠ عدم التوفّر**: `isHidden` مستقل تماماً عن `isAvailable`؛ غير المتوفر يبقى ظاهراً معتماً في المنيو، والمخفي يختفي كلياً دون حذف. إظهاره لاحقاً إجراء يدوي صريح. `UPDATE ... WHERE categoryId=? AND isAvailable=0 AND isHidden=0` للدفعة، و`IN (...)` مع `changes` (أُضيف لحقل نتيجة `run`) للعدد الحقيقي المتأثر.
+- **ثيم الادمن الفاتح معزول**: `html.admin-light` يعيد تعريف متغيرات CSS فقط (لوحة فاتحة/كروت بيضاء/حدود فاتحة/نصوص رمادية داكنة/ظلال) فينعكس على كل صفحة `/admin` والترويسة/التذييل المشتركة عبر `AdminTheme`؛ الزبون يبقى على السمة الداكنة كما هو.

@@ -11,6 +11,8 @@ import {
   deleteProduct,
   getCategoryById,
   getProductById,
+  hideUnavailableProducts,
+  showHiddenProducts,
   updateCategoryImage,
   updateIngredient,
   updateProduct,
@@ -38,6 +40,7 @@ export async function isAdmin(): Promise<boolean> {
 export interface ActionResult {
   error?: string;
   ok?: boolean;
+  count?: number;
 }
 
 export async function loginAction(
@@ -209,4 +212,33 @@ export async function deleteOrderAction(
   await deleteOrder(id);
   logger.info("order deleted", { id });
   return { ok: true };
+}
+
+export async function hideUnavailableProductsAction(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  if (!(await isAdmin())) redirect("/admin");
+  const categoryId = Number(formData.get("categoryId"));
+  if (!(await getCategoryById(categoryId))) return { error: "الصنف غير موجود" };
+  const count = await hideUnavailableProducts(categoryId);
+  logger.info("products hidden", { categoryId, count });
+  return { ok: true, count };
+}
+
+export async function showHiddenProductsAction(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  if (!(await isAdmin())) redirect("/admin");
+  const categoryId = Number(formData.get("categoryId"));
+  if (!(await getCategoryById(categoryId))) return { error: "الصنف غير موجود" };
+  const ids = formData
+    .getAll("ids")
+    .map((v) => Number(v))
+    .filter((id) => Number.isInteger(id) && id > 0);
+  if (ids.length === 0) return { error: "اختر منتجاً واحداً على الأقل" };
+  const count = await showHiddenProducts(categoryId, ids);
+  logger.info("products shown again", { categoryId, count });
+  return { ok: true, count };
 }

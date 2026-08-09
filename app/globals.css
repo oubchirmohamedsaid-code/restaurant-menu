@@ -13,6 +13,28 @@
   --muted: #a1a1aa;
 }
 
+html.admin-light {
+  --bg: #faf9f6;
+  --surface: #ffffff;
+  --card: #ffffff;
+  --card-2: #f3f1ec;
+  --line: #e7e4dc;
+  --accent: #b45309;
+  --accent-strong: #92400e;
+  --accent-soft: rgba(180, 83, 9, 0.1);
+  --foreground: #1f2937;
+  --muted: #6b7280;
+  color-scheme: light;
+}
+
+html.admin-light .text-green-400 {
+  color: #15803d;
+}
+
+html.admin-light .text-red-400 {
+  color: #b91c1c;
+}
+
 @theme inline {
   --color-background: var(--bg);
   --color-surface: var(--surface);

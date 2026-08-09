@@ -41,6 +41,7 @@ export interface ProductRow {
   priceCents: number;
   imageUrl: string;
   isAvailable: number;
+  isHidden: number;
   sortOrder: number;
 }
 
@@ -70,6 +71,7 @@ CREATE TABLE IF NOT EXISTS Product (
   priceCents INTEGER NOT NULL,
   imageUrl TEXT NOT NULL,
   isAvailable INTEGER NOT NULL DEFAULT 1,
+  isHidden INTEGER NOT NULL DEFAULT 0,
   sortOrder INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_product_category ON Product(categoryId);
@@ -96,7 +98,7 @@ type Row = Record<string, unknown>;
 interface Statement {
   all(...args: unknown[]): Promise<Row[]>;
   get(...args: unknown[]): Promise<Row | undefined>;
-  run(...args: unknown[]): Promise<{ lastInsertRowid: number | bigint }>;
+  run(...args: unknown[]): Promise<{ lastInsertRowid: number | bigint; changes: number }>;
 }
 
 interface DbHandle {
@@ -133,6 +135,7 @@ class LocalDb implements DbHandle {
         Promise.resolve(
           stmt.run(...args) as unknown as {
             lastInsertRowid: number | bigint;
+            changes: number;
           },
         ),
     };
@@ -161,7 +164,7 @@ class TursoDb implements DbHandle {
       },
       run: async (...args) => {
         const rs = await this.client.execute({ sql, args: args as InArgs });
-        return { lastInsertRowid: rs.lastInsertRowid ?? 0 };
+        return { lastInsertRowid: rs.lastInsertRowid ?? 0, changes: rs.rowsAffected };
       },
     };
   }
@@ -186,6 +189,9 @@ async function openLocal(): Promise<DbHandle> {
   if (!(await hasColumn(db, "Ingredient", "isRequired"))) {
     await db.exec("ALTER TABLE Ingredient ADD COLUMN isRequired INTEGER NOT NULL DEFAULT 0");
   }
+  if (!(await hasColumn(db, "Product", "isHidden"))) {
+    await db.exec("ALTER TABLE Product ADD COLUMN isHidden INTEGER NOT NULL DEFAULT 0");
+  }
   return db;
 }
 
@@ -199,6 +205,9 @@ async function openTurso(): Promise<DbHandle> {
   }
   if (!(await hasColumn(db, "Ingredient", "isRequired"))) {
     await db.exec("ALTER TABLE Ingredient ADD COLUMN isRequired INTEGER NOT NULL DEFAULT 0");
+  }
+  if (!(await hasColumn(db, "Product", "isHidden"))) {
+    await db.exec("ALTER TABLE Product ADD COLUMN isHidden INTEGER NOT NULL DEFAULT 0");
   }
   return db;
 }
@@ -310,6 +319,33 @@ export async function updateProduct(id: number, input: ProductInput): Promise<vo
 export async function deleteProduct(id: number): Promise<void> {
   const db = await getDb();
   await db.prepare("DELETE FROM Product WHERE id = ?").run(id);
+}
+
+const MAX_BULK_IDS = 200;
+
+export async function hideUnavailableProducts(categoryId: number): Promise<number> {
+  const db = await getDb();
+  const result = await db
+    .prepare(
+      "UPDATE Product SET isHidden = 1 WHERE categoryId = ? AND isAvailable = 0 AND isHidden = 0",
+    )
+    .run(categoryId);
+  return result.changes;
+}
+
+export async function showHiddenProducts(categoryId: number, ids: number[]): Promise<number> {
+  const unique = [...new Set(ids)]
+    .filter((id) => Number.isInteger(id) && id > 0)
+    .slice(0, MAX_BULK_IDS);
+  if (unique.length === 0) return 0;
+  const db = await getDb();
+  const placeholders = unique.map(() => "?").join(", ");
+  const result = await db
+    .prepare(
+      `UPDATE Product SET isHidden = 0 WHERE categoryId = ? AND isHidden = 1 AND id IN (${placeholders})`,
+    )
+    .run(categoryId, ...unique);
+  return result.changes;
 }
 
 export interface CategoryWithCount extends CategoryRow {

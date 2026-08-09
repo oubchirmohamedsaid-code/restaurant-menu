@@ -31,7 +31,7 @@ export async function placeOrderAction(lines: CartLine[]): Promise<OrderActionRe
       return { error: "بنود غير صالحة" };
     }
     const product = await getProductById(l.productId);
-    if (!product || product.isAvailable !== 1) {
+    if (!product || product.isAvailable !== 1 || product.isHidden === 1) {
       return { error: `طبق غير متوفر: ${l.name}` };
     }
     const ingredients = await listIngredientsByProduct(product.id);
