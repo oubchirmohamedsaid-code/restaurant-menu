@@ -90,7 +90,10 @@ git push -u origin main
    | `ADMIN_PASSWORD` | كلمة مرور الادمن |
    | `SESSION_SECRET` | سر توقيع الجلسة |
    - اختر **Production + Preview** وعلامة **Sensitive**.
-4. **Deploy** — ثم كل دفعة جديدة على GitHub تعيد النشر تلقائياً.
+4. **رفع الصور من الادمن (إلزامي ليعمل التعديل):** نظام ملفات Vercel للقراءة فقط،
+   لذلك الصور تُرفع إلى **Vercel Blob**: **Storage → Create Blob** → اختر **Public**.
+   سيربط Vercel المتغير `BLOB_READ_WRITE_TOKEN` تلقائياً بالمشروع.
+5. **Deploy** — ثم كل دفعة جديدة على GitHub تعيد النشر تلقائياً.
 
 ---
 
@@ -124,3 +127,4 @@ curl -I https://<project>.vercel.app/admin
 | صفحة «Log in to Vercel» | الحماية مفعّلة | القسم 6 |
 | يظهر موقع غريب آخر | الرابط القصير محجوز لمشروع بنفس الاسم | استخدم رابطك الطويل `...-<project>.vercel.app` |
 | 500 بعد ضبط المتغيرات | متغيرات أُضيفت بلا إعادة نشر | **Redeploy** من Deployments |
+| الادمن لا يقبل تعديل/صورة | رفع الصور يكتب لنظام ملفات للقراءة فقط | أنشئ Blob Store (القسم 5) وأعد النشر |

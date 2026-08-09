@@ -40,6 +40,7 @@ npm run build && npm run start   # الإنتاج
 | `CURRENCY` | رمز العملة (افتراضياً `دج` — دينار جزائري) |
 | `TURSO_URL` | (اختياري محلياً، مطلوب في Vercel) رابط قاعدة Turso `libsql://...` — عند ضبطه تُستخدم القاعدة السحابية بدل الملف المحلي |
 | `TURSO_TOKEN` | (اختياري محلياً، مطلوب في Vercel) رمز الوصول لقاعدة Turso |
+| `BLOB_READ_WRITE_TOKEN` | (مطلوب في Vercel لرفع الصور) رمز مخزن Vercel Blob — يُربط تلقائياً عند إنشاء Storage → Blob |
 
 ## النشر (Vercel + Turso)
 
@@ -49,7 +50,10 @@ npm run build && npm run start   # الإنتاج
 2. ارفع المستودع إلى GitHub.
 3. في [vercel.com](https://vercel.com) → **Add New Project** → Import من GitHub.
 4. أضف متغيرات البيئة: `TURSO_URL`, `TURSO_TOKEN`, `ADMIN_PASSWORD`, `SESSION_SECRET`.
-5. **Deploy** — قاعدة Turso تُهيّأ تلقائياً عند أول تشغيل (schema idempotent).
+5. لرفع الصور في الادمن: **Storage → Create Blob** (رابط الصور يُربط تلقائياً بـ `BLOB_READ_WRITE_TOKEN`).
+6. **Deploy** — قاعدة Turso تُهيّأ تلقائياً عند أول تشغيل (schema idempotent).
+
+كل دفعة `git push` إلى `main` تعيد النشر تلقائياً (auto-deploy).
 
 محلياً: `npm run db:seed && npx tsx scripts/smoke.ts` تشغّل أيضاً ضد Turso عندما يكون `TURSO_URL` مضبوطاً.
 
