@@ -6,17 +6,31 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
-import type { ReactNode } from "react";
+import type { ReactNode, RefObject } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
 import { AnimatePresence, motion } from "motion/react";
 import { formatPrice, RESTAURANT_NAME } from "@/lib/utils";
-import { cartCount, cartTotalCents } from "@/lib/cart";
-import type { CartLine } from "@/lib/cart";
+import { cartCount, cartTotalCents, flyVector } from "@/lib/cart";
+import type { CartLine, Rect } from "@/lib/cart";
 import { placeOrderAction } from "@/app/orders/actions";
+
+interface Flight {
+  id: number;
+  from: Rect;
+  to: Rect;
+  imageUrl: string;
+  name: string;
+}
+
+interface CartToast {
+  id: number;
+  name: string;
+}
 
 interface CartCtx {
   lines: CartLine[];
@@ -28,6 +42,9 @@ interface CartCtx {
   add: (p: Omit<CartLine, "qty">) => void;
   setQty: (key: string, qty: number) => void;
   clear: () => void;
+  flyToCart: (from: Rect, imageUrl: string, name: string) => void;
+  cartButtonRef: RefObject<HTMLButtonElement | null>;
+  bumpNonce: number;
 }
 
 const CartContext = createContext<CartCtx | null>(null);
@@ -43,6 +60,12 @@ export function useCart(): CartCtx {
 export function CartProvider({ children }: { children: ReactNode }) {
   const [lines, setLines] = useState<CartLine[]>([]);
   const [isOpen, setIsOpen] = useState(false);
+  const [flights, setFlights] = useState<Flight[]>([]);
+  const [toasts, setToasts] = useState<CartToast[]>([]);
+  const [bumpNonce, setBumpNonce] = useState(0);
+  const cartButtonRef = useRef<HTMLButtonElement | null>(null);
+  const flightSeq = useRef(0);
+  const toastSeq = useRef(0);
 
   useEffect(() => {
     const t = window.setTimeout(() => {
@@ -89,21 +112,150 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const open = useCallback(() => setIsOpen(true), []);
   const close = useCallback(() => setIsOpen(false), []);
 
+  const pushToast = useCallback((name: string) => {
+    const id = ++toastSeq.current;
+    setToasts((prev) => [...prev, { id, name }]);
+    window.setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 2400);
+  }, []);
+
+  const completeFlight = useCallback(
+    (flight: Flight) => {
+      setFlights((prev) => prev.filter((f) => f.id !== flight.id));
+      setBumpNonce((n) => n + 1);
+      pushToast(flight.name);
+    },
+    [pushToast],
+  );
+
+  const flyToCart = useCallback(
+    (from: Rect, imageUrl: string, name: string) => {
+      const btn = cartButtonRef.current;
+      const to = btn ? btn.getBoundingClientRect() : null;
+      if (!to || from.width <= 0 || from.height <= 0) {
+        setBumpNonce((n) => n + 1);
+        pushToast(name);
+        return;
+      }
+      setFlights((prev) => [
+        ...prev,
+        { id: ++flightSeq.current, from, to, imageUrl, name },
+      ]);
+    },
+    [pushToast],
+  );
+
   const { count, totalCents } = useMemo(
     () => ({ count: cartCount(lines), totalCents: cartTotalCents(lines) }),
     [lines],
   );
 
   const value: CartCtx = useMemo(
-    () => ({ lines, count, totalCents, isOpen, open, close, add, setQty, clear }),
-    [lines, count, totalCents, isOpen, open, close, add, setQty, clear],
+    () => ({
+      lines,
+      count,
+      totalCents,
+      isOpen,
+      open,
+      close,
+      add,
+      setQty,
+      clear,
+      flyToCart,
+      cartButtonRef,
+      bumpNonce,
+    }),
+    [
+      lines,
+      count,
+      totalCents,
+      isOpen,
+      open,
+      close,
+      add,
+      setQty,
+      clear,
+      flyToCart,
+      cartButtonRef,
+      bumpNonce,
+    ],
   );
 
-  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
+  return (
+    <CartContext.Provider value={value}>
+      {children}
+      <CartToasts toasts={toasts} />
+      {flights.map((flight) => (
+        <FlyingImage key={flight.id} flight={flight} onDone={completeFlight} />
+      ))}
+    </CartContext.Provider>
+  );
+}
+
+function FlyingImage({
+  flight,
+  onDone,
+}: {
+  flight: Flight;
+  onDone: (flight: Flight) => void;
+}) {
+  const { dx, dy } = flyVector(flight.from, flight.to);
+  return (
+    <motion.div
+      initial={{ x: 0, y: 0, scale: 1, opacity: 1 }}
+      animate={{ x: dx, y: dy, scale: 0.08, opacity: 0.55 }}
+      transition={{ type: "spring", stiffness: 200, damping: 22, mass: 0.9 }}
+      onAnimationComplete={() => onDone(flight)}
+      className="pointer-events-none fixed left-0 top-0 z-[70] overflow-hidden rounded-2xl shadow-2xl ring-1 ring-white/10"
+      style={{
+        left: flight.from.x,
+        top: flight.from.y,
+        width: flight.from.width,
+        height: flight.from.height,
+      }}
+    >
+      <Image
+        src={flight.imageUrl}
+        alt=""
+        fill
+        unoptimized
+        sizes="200px"
+        className="object-cover"
+      />
+    </motion.div>
+  );
+}
+
+function CartToasts({ toasts }: { toasts: CartToast[] }) {
+  return (
+    <div className="pointer-events-none fixed inset-x-0 top-20 z-[80] flex flex-col items-center gap-2 px-4">
+      <AnimatePresence>
+        {toasts.map((t) => (
+          <motion.div
+            key={t.id}
+            initial={{ opacity: 0, y: -16, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -16, scale: 0.95 }}
+            transition={{ duration: 0.22 }}
+            role="status"
+            className="pointer-events-auto flex items-center gap-2 rounded-full border border-line bg-surface px-5 py-2.5 text-sm font-extrabold shadow-2xl"
+          >
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-500 text-xs font-black text-white">
+              ✓
+            </span>
+            <span>
+              أُضيف <span className="text-accent-strong">{t.name}</span> إلى السلة
+            </span>
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
+  );
 }
 
 export function SiteHeader() {
-  const { count, open } = useCart();
+  const { count, open, cartButtonRef, bumpNonce } = useCart();
   const pathname = usePathname();
   const isAdmin = pathname.startsWith("/admin");
 
@@ -131,12 +283,22 @@ export function SiteHeader() {
           </Link>
           {!isAdmin && (
             <button
+              ref={cartButtonRef}
               type="button"
               onClick={open}
               aria-label={`فتح السلة، ${count} صنف`}
               className="relative flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-extrabold text-black transition-transform hover:scale-105 active:scale-95"
             >
-              <span aria-hidden>🛒</span>
+              <motion.span
+                key={bumpNonce}
+                initial={{ scale: 1 }}
+                animate={{ scale: [1, 1.35, 1] }}
+                transition={{ duration: 0.45, times: [0, 0.5, 1] }}
+                className="inline-block"
+                aria-hidden
+              >
+                🛒
+              </motion.span>
               <span className="hidden sm:inline">السلة</span>
               {count > 0 && (
                 <motion.span

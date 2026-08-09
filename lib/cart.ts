@@ -11,6 +11,20 @@ export interface RemovedIngredient {
   name: string;
 }
 
+export interface Rect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export function flyVector(from: Rect, to: Rect): { dx: number; dy: number } {
+  return {
+    dx: to.x + to.width / 2 - (from.x + from.width / 2),
+    dy: to.y + to.height / 2 - (from.y + from.height / 2),
+  };
+}
+
 export interface CartLine {
   productId: number;
   key: string;

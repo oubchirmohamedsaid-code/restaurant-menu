@@ -26,7 +26,7 @@ import {
   updateIngredient,
   updateProduct,
 } from "../lib/db";
-import { cartCount, cartTotalCents, formatOrderLine } from "../lib/cart";
+import { cartCount, cartTotalCents, formatOrderLine, flyVector } from "../lib/cart";
 import type { CartLine } from "../lib/cart";
 import { createSessionToken, verifyPassword, verifySessionToken } from "../lib/session";
 import { formatPrice } from "../lib/utils";
@@ -271,6 +271,27 @@ async function main() {
   assert.ok(lineText.includes("بدون: بصل"), "order line must include removed ingredients");
   assert.ok(lineText.includes("جبنة"), "order line must include added extras");
   console.log("✓ cart totals + order line formatting verified");
+
+  // --- fly-to-cart animation vector (M17) ---
+  const rectFrom = { x: 40, y: 120, width: 200, height: 150 };
+  const rectTo = { x: 900, y: 20, width: 48, height: 48 };
+  const v = flyVector(rectFrom, rectTo);
+  assert.strictEqual(
+    v.dx,
+    rectTo.x + rectTo.width / 2 - (rectFrom.x + rectFrom.width / 2),
+    "flyVector dx must aim at the target center",
+  );
+  assert.strictEqual(
+    v.dy,
+    rectTo.y + rectTo.height / 2 - (rectFrom.y + rectFrom.height / 2),
+    "flyVector dy must aim at the target center",
+  );
+  const zero = flyVector(
+    { x: 0, y: 0, width: 10, height: 10 },
+    { x: 0, y: 0, width: 10, height: 10 },
+  );
+  assert.deepStrictEqual(zero, { dx: 0, dy: 0 }, "aligned centers must produce a zero offset");
+  console.log("✓ fly-to-cart animation vector verified");
 
   // --- orders create/list/delete ---
   const orderId = await createOrder(JSON.stringify(["بيتزا × 2 — 56.00 دج"]), 6600);
