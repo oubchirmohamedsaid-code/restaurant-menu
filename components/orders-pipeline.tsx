@@ -842,47 +842,49 @@ export function OrdersPipelineView({
         </p>
       )}
 
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCorners}
-        onDragStart={onDragStart}
-        onDragOver={onDragOver}
-        onDragEnd={onDragEnd}
-        onDragCancel={() => {
-          sourceRef.current = null;
-          setActiveOrder(null);
-          setBoard(buildGrouped(filtered));
-        }}
-      >
-        <div className="flex gap-4 overflow-x-auto pb-4 lg:grid lg:grid-cols-4 lg:items-start">
-          {ACTIVE_STATUSES.map((s) => (
-            <SortableColumn
-              key={s}
-              status={s}
-              orders={board[s]}
-              thresholds={thresholds}
-              busy={busy}
-              onOpen={openDetail}
-              onAdvance={advance}
-              onCancelClick={setCancelling}
-            />
-          ))}
-        </div>
+      <div className="lg:rounded-3xl lg:border lg:border-line lg:bg-card lg:p-4">
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={onDragStart}
+          onDragOver={onDragOver}
+          onDragEnd={onDragEnd}
+          onDragCancel={() => {
+            sourceRef.current = null;
+            setActiveOrder(null);
+            setBoard(buildGrouped(filtered));
+          }}
+        >
+          <div className="flex gap-4 overflow-x-auto pb-4 lg:grid lg:grid-cols-4 lg:items-start">
+            {ACTIVE_STATUSES.map((s) => (
+              <SortableColumn
+                key={s}
+                status={s}
+                orders={board[s]}
+                thresholds={thresholds}
+                busy={busy}
+                onOpen={openDetail}
+                onAdvance={advance}
+                onCancelClick={setCancelling}
+              />
+            ))}
+          </div>
 
-        <DragOverlay dropAnimation={{ duration: 200 }} style={{ cursor: "grabbing" }}>
-          {activeOrder ? (
-            <OrderCard
-              order={activeOrder}
-              thresholds={thresholds}
-              busy={busy}
-              onOpen={() => {}}
-              onAdvance={() => {}}
-              onCancelClick={() => {}}
-              overlay
-            />
-          ) : null}
-        </DragOverlay>
-      </DndContext>
+          <DragOverlay dropAnimation={{ duration: 200 }} style={{ cursor: "grabbing" }}>
+            {activeOrder ? (
+              <OrderCard
+                order={activeOrder}
+                thresholds={thresholds}
+                busy={busy}
+                onOpen={() => {}}
+                onAdvance={() => {}}
+                onCancelClick={() => {}}
+                overlay
+              />
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      </div>
 
       <section className="mt-2 rounded-3xl border border-line bg-card-2/70 p-4 shadow-soft">
         <header className="mb-3 flex items-center gap-2">
