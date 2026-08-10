@@ -605,6 +605,12 @@ export function OrdersPipelineView({
           >
             متأخرة فقط
           </button>
+          <a
+            href="/admin/orders/export"
+            className="rounded-full border border-line px-4 py-2 text-sm font-bold text-muted transition-colors hover:text-foreground"
+          >
+            تصدير CSV
+          </a>
           <button
             type="button"
             onClick={() => router.refresh()}
