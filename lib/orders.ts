@@ -68,3 +68,18 @@ export function isLate(
   const limit = thresholds[order.status as StageStatus] ?? DEFAULT_LATE_MINUTES[order.status as StageStatus];
   return limit !== undefined && minutes > limit;
 }
+
+export const ACTIVITY_LABELS: Record<string, string> = {
+  created: "تم إنشاء الطلب",
+  confirmed: "تم تأكيد الطلب",
+  preparing: "بدأ التحضير",
+  delivered: "تم التوصيل",
+  completed: "تم إكمال الطلب",
+  cancelled: "تم إلغاء الطلب",
+  priority: "تغيير الأولوية",
+  payment: "تغيير حالة الدفع",
+};
+
+export function activityLabel(action: string): string {
+  return ACTIVITY_LABELS[action] ?? action;
+}

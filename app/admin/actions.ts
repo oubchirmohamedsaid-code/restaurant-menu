@@ -6,11 +6,13 @@ import { createSessionToken, verifyPassword, verifySessionToken } from "@/lib/se
 import {
   createCategory,
   createIngredient,
+  createOrder,
   createProduct,
   deleteCategory,
   deleteIngredient,
   deleteProduct,
   getCategoryById,
+  getOrder,
   getProductById,
   hideUnavailableProducts,
   listCategories,
@@ -25,6 +27,7 @@ import {
   updateOrderStatus,
   updateProduct,
 } from "@/lib/db";
+import type { OrderDetail, OrderLineInput } from "@/lib/db";
 import type { OrderPriority, PaymentStatus } from "@/lib/orders";
 import { saveImageUpload, deleteStoredImage } from "@/lib/upload";
 import { logger } from "@/lib/logger";
@@ -72,6 +75,7 @@ export interface ActionResult {
   error?: string;
   ok?: boolean;
   count?: number;
+  orderId?: number;
 }
 
 export async function loginAction(
@@ -275,6 +279,37 @@ export async function setOrderPaymentStatusAction(orderId: number, paymentStatus
   await setOrderPaymentStatus(orderId, paymentStatus);
   logger.info("order payment set", { orderId, paymentStatus });
   return { ok: true };
+}
+
+export async function getOrderDetailAction(orderId: number): Promise<OrderDetail | undefined> {
+  if (!(await isAdmin())) redirect("/admin");
+  return getOrder(orderId);
+}
+
+export async function reorderOrderAction(orderId: number): Promise<ActionResult> {
+  if (!(await isAdmin())) redirect("/admin");
+  const detail = await getOrder(orderId);
+  if (!detail) return { error: "الطلب غير موجود" };
+  const lines: OrderLineInput[] = detail.lines.map((l) => ({
+    productId: l.productId,
+    name: l.name,
+    qty: l.qty,
+    unitCents: l.unitCents,
+    extras: parseJsonArray(l.extras),
+    removed: parseJsonArray(l.removed),
+  }));
+  const newId = await createOrder(lines, detail.order.totalCents);
+  logger.info("order reordered", { from: orderId, to: newId });
+  return { ok: true, orderId: newId };
+}
+
+function parseJsonArray(raw: string): string[] {
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((x) => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function hideUnavailableProductsAction(

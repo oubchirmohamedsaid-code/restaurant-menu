@@ -100,3 +100,23 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--accent);
 }
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+  .print-area {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    color: #000;
+    background: #fff;
+  }
+  .print-hidden {
+    display: none !important;
+  }
+}
