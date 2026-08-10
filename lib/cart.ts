@@ -27,7 +27,25 @@ export function flyVector(from: Rect, to: Rect): { dx: number; dy: number } {
 
 export const FLY_TARGET_OPACITY = 1;
 export const FLY_TARGET_SCALE = 0.08;
-export const FLY_TRANSITION = { duration: 1.3, ease: "easeInOut" } as const;
+
+export const FLY_RISE = 150;
+
+export const FLY_RISE_TRANSITION: {
+  duration: number;
+  ease: [number, number, number, number];
+} = { duration: 0.85, ease: [0.65, 0.05, 0.36, 1] };
+
+export const FLY_LAUNCH_TRANSITION: {
+  x: { duration: number; ease: [number, number, number, number] };
+  y: { duration: number; ease: [number, number, number, number] };
+  scale: { duration: number; ease: [number, number, number, number] };
+  opacity: { duration: number };
+} = {
+  x: { duration: 0.5, ease: [0.16, 1, 0.3, 1] },
+  y: { duration: 0.5, ease: [0.5, 0, 1, 0.5] },
+  scale: { duration: 0.5, ease: [0.5, 0, 1, 0.5] },
+  opacity: { duration: 0.5 },
+};
 
 export interface CartLine {
   productId: number;

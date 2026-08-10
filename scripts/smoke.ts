@@ -32,7 +32,9 @@ import {
   formatOrderLine,
   flyVector,
   FLY_TARGET_OPACITY,
-  FLY_TRANSITION,
+  FLY_RISE,
+  FLY_RISE_TRANSITION,
+  FLY_LAUNCH_TRANSITION,
 } from "../lib/cart";
 import type { CartLine } from "../lib/cart";
 import { createSessionToken, verifyPassword, verifySessionToken } from "../lib/session";
@@ -300,17 +302,23 @@ async function main() {
   assert.deepStrictEqual(zero, { dx: 0, dy: 0 }, "aligned centers must produce a zero offset");
   console.log("✓ fly-to-cart animation vector verified");
 
-  // --- fly animation config: clear + slow (M18) ---
+  // --- fly animation config: opaque + rise-then-arc launch (M19) ---
   assert.strictEqual(
     FLY_TARGET_OPACITY,
     1,
     "flying image must stay fully opaque so the path to the cart is clear",
   );
+  assert.ok(FLY_RISE > 0, "phase 1 must lift the image upward (float)");
   assert.ok(
-    FLY_TRANSITION.duration >= 1,
-    "fly animation must be slow enough for the eye to follow it to the cart button",
+    FLY_LAUNCH_TRANSITION.x.duration < FLY_RISE_TRANSITION.duration,
+    "launch toward the cart must be faster than the slow rise",
   );
-  console.log("✓ fly animation config: opaque + slow verified");
+  assert.notDeepStrictEqual(
+    FLY_LAUNCH_TRANSITION.x.ease,
+    FLY_LAUNCH_TRANSITION.y.ease,
+    "horizontal and vertical launch easing must differ to produce a curved arc",
+  );
+  console.log("✓ fly animation config: opaque + rise-then-arc launch verified");
 
   // --- orders create/list/delete ---
   const orderId = await createOrder(JSON.stringify(["بيتزا × 2 — 56.00 دج"]), 6600);

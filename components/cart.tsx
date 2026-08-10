@@ -15,7 +15,16 @@ import { usePathname } from "next/navigation";
 import Image from "next/image";
 import { AnimatePresence, motion } from "motion/react";
 import { formatPrice, RESTAURANT_NAME } from "@/lib/utils";
-import { cartCount, cartTotalCents, flyVector, FLY_TARGET_OPACITY, FLY_TARGET_SCALE, FLY_TRANSITION } from "@/lib/cart";
+import {
+  cartCount,
+  cartTotalCents,
+  flyVector,
+  FLY_TARGET_OPACITY,
+  FLY_TARGET_SCALE,
+  FLY_RISE,
+  FLY_RISE_TRANSITION,
+  FLY_LAUNCH_TRANSITION,
+} from "@/lib/cart";
 import type { CartLine, Rect } from "@/lib/cart";
 import { placeOrderAction } from "@/app/orders/actions";
 
@@ -201,17 +210,21 @@ function FlyingImage({
   onDone: (flight: Flight) => void;
 }) {
   const { dx, dy } = flyVector(flight.from, flight.to);
+  const [launched, setLaunched] = useState(false);
   return (
     <motion.div
       initial={{ x: 0, y: 0, scale: 1, opacity: 1 }}
       animate={{
-        x: dx,
-        y: dy,
-        scale: FLY_TARGET_SCALE,
+        x: launched ? dx : 0,
+        y: launched ? dy : -FLY_RISE,
+        scale: launched ? FLY_TARGET_SCALE : 1,
         opacity: FLY_TARGET_OPACITY,
       }}
-      transition={FLY_TRANSITION}
-      onAnimationComplete={() => onDone(flight)}
+      transition={launched ? FLY_LAUNCH_TRANSITION : FLY_RISE_TRANSITION}
+      onAnimationComplete={() => {
+        if (launched) onDone(flight);
+        else setLaunched(true);
+      }}
       className="pointer-events-none fixed left-0 top-0 z-[70] overflow-hidden rounded-2xl shadow-2xl ring-1 ring-white/10"
       style={{
         left: flight.from.x,
