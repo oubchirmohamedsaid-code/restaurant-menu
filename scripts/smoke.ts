@@ -26,7 +26,14 @@ import {
   updateIngredient,
   updateProduct,
 } from "../lib/db";
-import { cartCount, cartTotalCents, formatOrderLine, flyVector } from "../lib/cart";
+import {
+  cartCount,
+  cartTotalCents,
+  formatOrderLine,
+  flyVector,
+  FLY_TARGET_OPACITY,
+  FLY_TRANSITION,
+} from "../lib/cart";
 import type { CartLine } from "../lib/cart";
 import { createSessionToken, verifyPassword, verifySessionToken } from "../lib/session";
 import { formatPrice } from "../lib/utils";
@@ -292,6 +299,18 @@ async function main() {
   );
   assert.deepStrictEqual(zero, { dx: 0, dy: 0 }, "aligned centers must produce a zero offset");
   console.log("✓ fly-to-cart animation vector verified");
+
+  // --- fly animation config: clear + slow (M18) ---
+  assert.strictEqual(
+    FLY_TARGET_OPACITY,
+    1,
+    "flying image must stay fully opaque so the path to the cart is clear",
+  );
+  assert.ok(
+    FLY_TRANSITION.duration >= 1,
+    "fly animation must be slow enough for the eye to follow it to the cart button",
+  );
+  console.log("✓ fly animation config: opaque + slow verified");
 
   // --- orders create/list/delete ---
   const orderId = await createOrder(JSON.stringify(["بيتزا × 2 — 56.00 دج"]), 6600);

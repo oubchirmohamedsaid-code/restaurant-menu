@@ -25,6 +25,10 @@ export function flyVector(from: Rect, to: Rect): { dx: number; dy: number } {
   };
 }
 
+export const FLY_TARGET_OPACITY = 1;
+export const FLY_TARGET_SCALE = 0.08;
+export const FLY_TRANSITION = { duration: 1.3, ease: "easeInOut" } as const;
+
 export interface CartLine {
   productId: number;
   key: string;

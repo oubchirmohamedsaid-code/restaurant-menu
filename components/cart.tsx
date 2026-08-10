@@ -15,7 +15,7 @@ import { usePathname } from "next/navigation";
 import Image from "next/image";
 import { AnimatePresence, motion } from "motion/react";
 import { formatPrice, RESTAURANT_NAME } from "@/lib/utils";
-import { cartCount, cartTotalCents, flyVector } from "@/lib/cart";
+import { cartCount, cartTotalCents, flyVector, FLY_TARGET_OPACITY, FLY_TARGET_SCALE, FLY_TRANSITION } from "@/lib/cart";
 import type { CartLine, Rect } from "@/lib/cart";
 import { placeOrderAction } from "@/app/orders/actions";
 
@@ -204,8 +204,13 @@ function FlyingImage({
   return (
     <motion.div
       initial={{ x: 0, y: 0, scale: 1, opacity: 1 }}
-      animate={{ x: dx, y: dy, scale: 0.08, opacity: 0.55 }}
-      transition={{ type: "spring", stiffness: 200, damping: 22, mass: 0.9 }}
+      animate={{
+        x: dx,
+        y: dy,
+        scale: FLY_TARGET_SCALE,
+        opacity: FLY_TARGET_OPACITY,
+      }}
+      transition={FLY_TRANSITION}
       onAnimationComplete={() => onDone(flight)}
       className="pointer-events-none fixed left-0 top-0 z-[70] overflow-hidden rounded-2xl shadow-2xl ring-1 ring-white/10"
       style={{
