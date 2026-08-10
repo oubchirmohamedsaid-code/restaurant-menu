@@ -644,6 +644,11 @@ export async function listOrders(): Promise<OrderRow[]> {
   return (await db.prepare("SELECT * FROM orders ORDER BY id DESC").all()) as unknown as OrderRow[];
 }
 
+export async function listAllOrderLines(): Promise<OrderLineRow[]> {
+  const db = await getDb();
+  return (await db.prepare("SELECT * FROM order_line ORDER BY orderId, id").all()) as unknown as OrderLineRow[];
+}
+
 async function getOrderRow(id: number): Promise<OrderRow | undefined> {
   const db = await getDb();
   return plainRow<OrderRow>(await db.prepare("SELECT * FROM orders WHERE id = ?").get(id));

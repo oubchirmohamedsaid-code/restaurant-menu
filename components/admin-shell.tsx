@@ -6,6 +6,7 @@ import { logoutAction } from "@/app/admin/actions";
 
 const NAV = [
   { href: "/admin/orders", label: "الطلبات", icon: "🧾" },
+  { href: "/admin/stats", label: "الإحصائيات", icon: "📊" },
   { href: "/admin/dashboard", label: "قائمة الطعام", icon: "🍽️" },
   { href: "/admin/settings", label: "الإعدادات", icon: "⚙️" },
 ];

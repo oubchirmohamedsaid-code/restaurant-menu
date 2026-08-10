@@ -51,6 +51,8 @@ import {
   FLY_LAUNCH_TRANSITION,
 } from "../lib/cart";
 import type { CartLine } from "../lib/cart";
+import type { OrderLineRow, OrderRow } from "../lib/db";
+import { computeStats } from "../lib/stats";
 import { createSessionToken, verifyPassword, verifySessionToken } from "../lib/session";
 import { formatPrice } from "../lib/utils";
 import { saveImageUpload } from "../lib/upload";
@@ -440,6 +442,93 @@ async function main() {
   const badSize = await saveImageUpload(new Uint8Array(5 * 1024 * 1024), "big.jpg");
   assert.ok("error" in badSize, "oversized file must be rejected");
   console.log("✓ image upload helper verified");
+
+  // --- stats aggregation (M27) ---
+  const statOrders = [
+    {
+      id: 1,
+      items: "",
+      totalCents: 1000,
+      createdAt: Date.now() - 60 * 1000,
+      updatedAt: Date.now(),
+      status: "new" as const,
+      priority: "normal" as const,
+      customerName: "",
+      customerPhone: "",
+      customerAddress: "",
+      notes: "",
+      cancelReason: "",
+      deliveryFeeCents: 0,
+      discountCents: 0,
+      paymentStatus: "unpaid" as const,
+      confirmedAt: null,
+      preparingAt: null,
+      deliveredAt: null,
+      completedAt: null,
+      cancelledAt: null,
+    },
+    {
+      id: 2,
+      items: "",
+      totalCents: 2000,
+      createdAt: Date.now() - 2 * 60 * 1000,
+      updatedAt: Date.now(),
+      status: "preparing" as const,
+      priority: "urgent" as const,
+      customerName: "",
+      customerPhone: "",
+      customerAddress: "",
+      notes: "",
+      cancelReason: "",
+      deliveryFeeCents: 0,
+      discountCents: 0,
+      paymentStatus: "paid" as const,
+      confirmedAt: Date.now(),
+      preparingAt: Date.now(),
+      deliveredAt: null,
+      completedAt: null,
+      cancelledAt: null,
+    },
+    {
+      id: 3,
+      items: "",
+      totalCents: 1500,
+      createdAt: Date.now() - 3 * 24 * 60 * 60 * 1000,
+      updatedAt: Date.now(),
+      status: "cancelled" as const,
+      priority: "normal" as const,
+      customerName: "",
+      customerPhone: "",
+      customerAddress: "",
+      notes: "",
+      cancelReason: "الزبون ألغى الطلب",
+      deliveryFeeCents: 0,
+      discountCents: 0,
+      paymentStatus: "unpaid" as const,
+      confirmedAt: null,
+      preparingAt: null,
+      deliveredAt: null,
+      completedAt: null,
+      cancelledAt: Date.now() - 3 * 24 * 60 * 60 * 1000,
+    },
+  ];
+  const statLines = [
+    { id: 1, orderId: 1, productId: 1, name: "بيتزا", qty: 2, unitCents: 500, lineCents: 1000, extras: "[]", removed: "[]" },
+    { id: 2, orderId: 2, productId: 2, name: "برجر", qty: 1, unitCents: 2000, lineCents: 2000, extras: "[]", removed: "[]" },
+    { id: 3, orderId: 3, productId: 1, name: "بيتزا", qty: 1, unitCents: 500, lineCents: 500, extras: "[]", removed: "[]" },
+  ];
+  const stats = computeStats(statOrders as unknown as OrderRow[], statLines as unknown as OrderLineRow[]);
+  assert.strictEqual(stats.totalOrders, 3, "total orders counted");
+  assert.strictEqual(stats.totalRevenueCents, 3000, "cancelled revenue excluded");
+  assert.strictEqual(stats.activeOrders, 2, "active = new + preparing + delivered");
+  assert.strictEqual(stats.unpaidOrders, 1, "cancelled not unpaid");
+  assert.strictEqual(stats.cancelledOrders, 1, "cancelled counted");
+  assert.strictEqual(stats.avgOrderCents, 1500, "avg excludes cancelled");
+  assert.strictEqual(stats.last7Days[stats.last7Days.length - 1].orders, 2, "today orders");
+  assert.strictEqual(stats.byStatus.find((s) => s.status === "cancelled")!.count, 1, "status distribution");
+  assert.strictEqual(stats.topProducts[0].name, "بيتزا", "top product by qty");
+  assert.strictEqual(stats.topProducts[0].qty, 3, "top product qty sums across orders");
+  console.log("✓ stats aggregation: KPIs + 7-day + status + top products verified");
 
   console.log("SMOKE OK");
 }
