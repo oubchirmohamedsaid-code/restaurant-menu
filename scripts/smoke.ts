@@ -13,19 +13,33 @@ import {
   deleteOrder,
   deleteProduct,
   getCategoryBySlug,
+  getOrder,
   getProductById,
+  getSetting,
   hideUnavailableProducts,
   listCategories,
   listIngredientsByProduct,
   listOrders,
   listProductsByCategory,
   reorderCategories,
+  setOrderPaymentStatus,
+  setOrderPriority,
+  setSetting,
   showHiddenProducts,
   updateCategory,
   updateCategoryImage,
   updateIngredient,
+  updateOrderStatus,
   updateProduct,
 } from "../lib/db";
+import {
+  CANCEL_REASONS,
+  DEFAULT_LATE_MINUTES,
+  isLate,
+  minutesInStage,
+  PRIORITY_LABELS,
+  STATUS_LABELS,
+} from "../lib/orders";
 import {
   cartCount,
   cartTotalCents,
@@ -324,20 +338,97 @@ async function main() {
   );
   console.log("✓ fly animation config: opaque + 50%-shrink prep then arc launch verified");
 
-  // --- orders create/list/delete ---
-  const orderId = await createOrder(JSON.stringify(["بيتزا × 2 — 56.00 دج"]), 6600);
-  const orders = await listOrders();
-  assert.ok(orders.length >= 1, "orders must be listed");
-  const last = orders[0];
-  assert.ok(last.items.includes("بيتزا"), "order items must be stored");
-  assert.strictEqual(last.totalCents, 6600);
-  await deleteOrder(orderId);
-  assert.strictEqual(
-    (await listOrders()).find((o) => o.id === orderId),
-    undefined,
-    "deleted order must be gone",
+  // --- order lifecycle: pipeline + activity + settings (M21) ---
+  assert.strictEqual(STATUS_LABELS.new, "طلب جديد", "status labels must be in Arabic");
+  assert.strictEqual(STATUS_LABELS.cancelled, "ملغى", "cancelled label must exist");
+  assert.strictEqual(PRIORITY_LABELS.urgent, "عاجل", "priority labels must be in Arabic");
+  assert.strictEqual(CANCEL_REASONS.length, 6, "six optional cancel reasons");
+  assert.strictEqual(DEFAULT_LATE_MINUTES.preparing, 30, "default late threshold for preparing");
+
+  const orderId = await createOrder(
+    [
+      { productId: 1, name: "بيتزا", qty: 2, unitCents: 2800, extras: ["جبنة"], removed: [] },
+      { productId: 2, name: "عصير", qty: 1, unitCents: 2000, extras: [], removed: ["ثلج"] },
+    ],
+    7600,
   );
-  console.log("✓ orders create/list/delete verified");
+  let detail = await getOrder(orderId);
+  assert.ok(detail, "order must be fetchable with details");
+  assert.strictEqual(detail.order.status, "new", "new order starts as 'new'");
+  assert.strictEqual(detail.order.priority, "normal", "default priority is normal");
+  assert.strictEqual(detail.order.paymentStatus, "unpaid", "default payment status is unpaid");
+  assert.strictEqual(detail.lines.length, 2, "structured order lines must be stored");
+  assert.strictEqual(detail.lines[0].lineCents, 5600, "line cents = unit x qty");
+  assert.strictEqual(detail.activity[0].action, "created", "creation must be logged");
+  assert.ok(detail.order.updatedAt >= detail.order.createdAt, "updatedAt must be set");
+  assert.ok(detail.order.items.includes("بيتزا"), "display items JSON still stored");
+
+  await updateOrderStatus(orderId, "preparing", { actor: "admin" });
+  detail = (await getOrder(orderId))!;
+  assert.ok(detail.order.preparingAt && detail.order.confirmedAt, "confirm records prep + confirm timestamps");
+  assert.strictEqual(detail.order.preparingAt, detail.order.confirmedAt, "confirm starts preparing");
+  assert.ok(detail.activity.some((a) => a.action === "confirmed"), "confirmation logged");
+  assert.ok(detail.activity.some((a) => a.action === "preparing"), "preparing logged");
+
+  await updateOrderStatus(orderId, "delivered", { actor: "admin" });
+  detail = (await getOrder(orderId))!;
+  assert.ok(detail.order.deliveredAt, "delivery records timestamp");
+
+  await updateOrderStatus(orderId, "completed", { actor: "admin" });
+  detail = (await getOrder(orderId))!;
+  assert.ok(detail.order.completedAt, "completion records timestamp");
+  assert.ok(detail.activity.some((a) => a.action === "completed"), "completion logged");
+
+  await setOrderPriority(orderId, "urgent", "admin");
+  detail = (await getOrder(orderId))!;
+  assert.strictEqual(detail.order.priority, "urgent", "priority must update");
+
+  await setOrderPaymentStatus(orderId, "paid", "admin");
+  detail = (await getOrder(orderId))!;
+  assert.strictEqual(detail.order.paymentStatus, "paid", "payment status must update");
+
+  const cancelId = await createOrder(
+    [{ productId: 1, name: "بيتزا", qty: 1, unitCents: 2800, extras: [], removed: [] }],
+    2800,
+  );
+  await updateOrderStatus(cancelId, "cancelled", { actor: "admin", reason: "الزبون ألغى الطلب" });
+  const cancelled = (await getOrder(cancelId))!;
+  assert.strictEqual(cancelled.order.status, "cancelled", "cancelled order stays stored");
+  assert.strictEqual(cancelled.order.cancelReason, "الزبون ألغى الطلب", "cancel reason recorded");
+  assert.ok(cancelled.activity.some((a) => a.action === "cancelled"), "cancellation logged");
+
+  const prepAt = Date.now() - 31 * 60 * 1000;
+  assert.strictEqual(
+    minutesInStage({ status: "preparing", createdAt: 0, preparingAt: prepAt, deliveredAt: null }, Date.now()),
+    31,
+    "minutes in stage = now - stage start",
+  );
+  assert.strictEqual(
+    minutesInStage({ status: "completed", createdAt: 0, preparingAt: prepAt, deliveredAt: null }, Date.now()),
+    null,
+    "terminal status has no stage time",
+  );
+  assert.strictEqual(
+    isLate({ status: "preparing", createdAt: 0, preparingAt: prepAt, deliveredAt: null }, {}, Date.now()),
+    true,
+    "preparing 31 min > default 30 = late",
+  );
+  assert.strictEqual(
+    isLate({ status: "preparing", createdAt: 0, preparingAt: Date.now() - 10 * 60 * 1000, deliveredAt: null }, {}, Date.now()),
+    false,
+    "preparing 10 min < 30 = not late",
+  );
+
+  await setSetting("late_preparing_minutes", "45");
+  assert.strictEqual(await getSetting("late_preparing_minutes"), "45", "settings value must persist");
+  assert.strictEqual(await getSetting("late_new_minutes"), "15", "late thresholds seeded by default");
+  await setSetting("late_preparing_minutes", "30");
+
+  await deleteOrder(orderId);
+  await deleteOrder(cancelId);
+  assert.strictEqual((await listOrders()).find((o) => o.id === orderId), undefined, "deleted order must be gone");
+  assert.strictEqual(await getOrder(orderId), undefined, "deleted order detail must be gone");
+  console.log("✓ order lifecycle: pipeline + activity + settings verified");
 
   // --- image upload helper ---
   const upload = await saveImageUpload(Buffer.from("fakepng"), "pic.png");

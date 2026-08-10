@@ -5,7 +5,7 @@ import {
   getProductById,
   listIngredientsByProduct,
 } from "@/lib/db";
-import { formatOrderLine } from "@/lib/cart";
+import type { OrderLineInput } from "@/lib/db";
 import type { CartLine } from "@/lib/cart";
 import { logger } from "@/lib/logger";
 
@@ -23,7 +23,7 @@ export async function placeOrderAction(lines: CartLine[]): Promise<OrderActionRe
     return { error: "السلة فارغة" };
   }
 
-  const items: string[] = [];
+  const orderLines: OrderLineInput[] = [];
   let totalCents = 0;
 
   for (const l of lines.slice(0, MAX_PICKS)) {
@@ -46,18 +46,17 @@ export async function placeOrderAction(lines: CartLine[]): Promise<OrderActionRe
     const unitCents =
       product.priceCents + extras.reduce((s, e) => s + byId.get(e.id)!.priceCents, 0);
     totalCents += unitCents * l.qty;
-    items.push(
-      formatOrderLine({
-        name: product.name,
-        qty: l.qty,
-        priceCents: unitCents,
-        extras: extras.map((e) => e.name),
-        removed: removed.map((r) => byId.get(r.id)!.name),
-      }),
-    );
+    orderLines.push({
+      productId: product.id,
+      name: product.name,
+      qty: l.qty,
+      unitCents,
+      extras: extras.map((e) => e.name),
+      removed: removed.map((r) => byId.get(r.id)!.name),
+    });
   }
 
-  const orderId = await createOrder(JSON.stringify(items), totalCents);
-  logger.info("order placed", { orderId, totalCents, items: items.length });
+  const orderId = await createOrder(orderLines, totalCents);
+  logger.info("order placed", { orderId, totalCents, items: orderLines.length });
   return { ok: true, orderId };
 }

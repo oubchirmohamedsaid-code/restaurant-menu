@@ -3,6 +3,9 @@ import { mkdirSync } from "node:fs";
 import { createClient } from "@libsql/client";
 import type { InArgs } from "@libsql/client";
 import { logger } from "./logger";
+import type { OrderStatus, OrderPriority, PaymentStatus } from "./orders";
+import { DEFAULT_LATE_MINUTES } from "./orders";
+import { formatOrderLine } from "./cart";
 
 const DATA_DIR = join(process.cwd(), "data");
 const DB_PATH = join(DATA_DIR, "menu.db");
@@ -32,6 +35,68 @@ export interface OrderRow {
   items: string;
   totalCents: number;
   createdAt: number;
+  updatedAt: number;
+  status: OrderStatus;
+  priority: OrderPriority;
+  customerName: string;
+  customerPhone: string;
+  customerAddress: string;
+  notes: string;
+  cancelReason: string;
+  deliveryFeeCents: number;
+  discountCents: number;
+  paymentStatus: PaymentStatus;
+  confirmedAt: number | null;
+  preparingAt: number | null;
+  deliveredAt: number | null;
+  completedAt: number | null;
+  cancelledAt: number | null;
+}
+
+export interface OrderLineInput {
+  productId: number;
+  name: string;
+  qty: number;
+  unitCents: number;
+  extras: string[];
+  removed: string[];
+}
+
+export interface OrderLineRow {
+  id: number;
+  orderId: number;
+  productId: number;
+  name: string;
+  qty: number;
+  unitCents: number;
+  lineCents: number;
+  extras: string;
+  removed: string;
+}
+
+export interface OrderActivityRow {
+  id: number;
+  orderId: number;
+  at: number;
+  actor: string;
+  action: string;
+  detail: string;
+}
+
+export interface OrderDetail {
+  order: OrderRow;
+  lines: OrderLineRow[];
+  activity: OrderActivityRow[];
+}
+
+export interface CreateOrderOptions {
+  customerName?: string;
+  customerPhone?: string;
+  customerAddress?: string;
+  notes?: string;
+  deliveryFeeCents?: number;
+  discountCents?: number;
+  actor?: string;
 }
 
 export interface ProductRow {
@@ -91,7 +156,48 @@ CREATE TABLE IF NOT EXISTS orders (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   items TEXT NOT NULL,
   totalCents INTEGER NOT NULL,
-  createdAt INTEGER NOT NULL
+  createdAt INTEGER NOT NULL,
+  updatedAt INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'new',
+  priority TEXT NOT NULL DEFAULT 'normal',
+  customerName TEXT NOT NULL DEFAULT '',
+  customerPhone TEXT NOT NULL DEFAULT '',
+  customerAddress TEXT NOT NULL DEFAULT '',
+  notes TEXT NOT NULL DEFAULT '',
+  cancelReason TEXT NOT NULL DEFAULT '',
+  deliveryFeeCents INTEGER NOT NULL DEFAULT 0,
+  discountCents INTEGER NOT NULL DEFAULT 0,
+  paymentStatus TEXT NOT NULL DEFAULT 'unpaid',
+  confirmedAt INTEGER,
+  preparingAt INTEGER,
+  deliveredAt INTEGER,
+  completedAt INTEGER,
+  cancelledAt INTEGER
+);
+CREATE TABLE IF NOT EXISTS order_line (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  orderId INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  productId INTEGER NOT NULL DEFAULT 0,
+  name TEXT NOT NULL,
+  qty INTEGER NOT NULL,
+  unitCents INTEGER NOT NULL,
+  lineCents INTEGER NOT NULL,
+  extras TEXT NOT NULL DEFAULT '[]',
+  removed TEXT NOT NULL DEFAULT '[]'
+);
+CREATE INDEX IF NOT EXISTS idx_order_line_order ON order_line(orderId);
+CREATE TABLE IF NOT EXISTS order_activity (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  orderId INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  at INTEGER NOT NULL,
+  actor TEXT NOT NULL DEFAULT '',
+  action TEXT NOT NULL,
+  detail TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_activity_order ON order_activity(orderId);
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
 );
 `;
 
@@ -177,6 +283,43 @@ async function hasColumn(db: DbHandle, table: string, col: string): Promise<bool
   return rows.some((r) => r.name === col);
 }
 
+const MIGRATIONS: Array<[string, string, string]> = [
+  ["Category", "imageUrl", "TEXT NOT NULL DEFAULT ''"],
+  ["Category", "isHidden", "INTEGER NOT NULL DEFAULT 0"],
+  ["Ingredient", "isRequired", "INTEGER NOT NULL DEFAULT 0"],
+  ["Product", "isHidden", "INTEGER NOT NULL DEFAULT 0"],
+  ["orders", "updatedAt", "INTEGER NOT NULL DEFAULT 0"],
+  ["orders", "status", "TEXT NOT NULL DEFAULT 'new'"],
+  ["orders", "priority", "TEXT NOT NULL DEFAULT 'normal'"],
+  ["orders", "customerName", "TEXT NOT NULL DEFAULT ''"],
+  ["orders", "customerPhone", "TEXT NOT NULL DEFAULT ''"],
+  ["orders", "customerAddress", "TEXT NOT NULL DEFAULT ''"],
+  ["orders", "notes", "TEXT NOT NULL DEFAULT ''"],
+  ["orders", "cancelReason", "TEXT NOT NULL DEFAULT ''"],
+  ["orders", "deliveryFeeCents", "INTEGER NOT NULL DEFAULT 0"],
+  ["orders", "discountCents", "INTEGER NOT NULL DEFAULT 0"],
+  ["orders", "paymentStatus", "TEXT NOT NULL DEFAULT 'unpaid'"],
+  ["orders", "confirmedAt", "INTEGER"],
+  ["orders", "preparingAt", "INTEGER"],
+  ["orders", "deliveredAt", "INTEGER"],
+  ["orders", "completedAt", "INTEGER"],
+  ["orders", "cancelledAt", "INTEGER"],
+];
+
+async function migrate(db: DbHandle): Promise<void> {
+  for (const [table, col, ddl] of MIGRATIONS) {
+    if (!(await hasColumn(db, table, col))) {
+      await db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${ddl}`);
+    }
+  }
+  await db.exec("UPDATE orders SET updatedAt = createdAt WHERE updatedAt = 0");
+  for (const [status, minutes] of Object.entries(DEFAULT_LATE_MINUTES)) {
+    await db
+      .prepare("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)")
+      .run(`late_${status}_minutes`, String(minutes));
+  }
+}
+
 async function openLocal(): Promise<DbHandle> {
   const { DatabaseSync } = await import("node:sqlite");
   mkdirSync(DATA_DIR, { recursive: true });
@@ -185,18 +328,7 @@ async function openLocal(): Promise<DbHandle> {
   conn.exec("PRAGMA foreign_keys = ON;");
   conn.exec(SCHEMA);
   const db = new LocalDb(conn);
-  if (!(await hasColumn(db, "Category", "imageUrl"))) {
-    await db.exec("ALTER TABLE Category ADD COLUMN imageUrl TEXT NOT NULL DEFAULT ''");
-  }
-  if (!(await hasColumn(db, "Category", "isHidden"))) {
-    await db.exec("ALTER TABLE Category ADD COLUMN isHidden INTEGER NOT NULL DEFAULT 0");
-  }
-  if (!(await hasColumn(db, "Ingredient", "isRequired"))) {
-    await db.exec("ALTER TABLE Ingredient ADD COLUMN isRequired INTEGER NOT NULL DEFAULT 0");
-  }
-  if (!(await hasColumn(db, "Product", "isHidden"))) {
-    await db.exec("ALTER TABLE Product ADD COLUMN isHidden INTEGER NOT NULL DEFAULT 0");
-  }
+  await migrate(db);
   return db;
 }
 
@@ -205,18 +337,7 @@ async function openTurso(): Promise<DbHandle> {
   const token = process.env.TURSO_TOKEN;
   const db = new TursoDb(url, token);
   await db.exec(SCHEMA);
-  if (!(await hasColumn(db, "Category", "imageUrl"))) {
-    await db.exec("ALTER TABLE Category ADD COLUMN imageUrl TEXT NOT NULL DEFAULT ''");
-  }
-  if (!(await hasColumn(db, "Category", "isHidden"))) {
-    await db.exec("ALTER TABLE Category ADD COLUMN isHidden INTEGER NOT NULL DEFAULT 0");
-  }
-  if (!(await hasColumn(db, "Ingredient", "isRequired"))) {
-    await db.exec("ALTER TABLE Ingredient ADD COLUMN isRequired INTEGER NOT NULL DEFAULT 0");
-  }
-  if (!(await hasColumn(db, "Product", "isHidden"))) {
-    await db.exec("ALTER TABLE Product ADD COLUMN isHidden INTEGER NOT NULL DEFAULT 0");
-  }
+  await migrate(db);
   return db;
 }
 
@@ -451,12 +572,71 @@ export async function deleteIngredient(id: number): Promise<void> {
   await db.prepare("DELETE FROM Ingredient WHERE id = ?").run(id);
 }
 
-export async function createOrder(items: string, totalCents: number): Promise<number> {
+async function logActivity(
+  db: DbHandle,
+  orderId: number,
+  action: string,
+  actor: string,
+  detail = "",
+): Promise<void> {
+  await db
+    .prepare("INSERT INTO order_activity (orderId, at, actor, action, detail) VALUES (?, ?, ?, ?, ?)")
+    .run(orderId, Date.now(), actor, action, detail);
+}
+
+export async function createOrder(
+  lines: OrderLineInput[],
+  totalCents: number,
+  opts: CreateOrderOptions = {},
+): Promise<number> {
   const db = await getDb();
+  const now = Date.now();
+  const items = lines.map((l) =>
+    formatOrderLine({
+      name: l.name,
+      qty: l.qty,
+      priceCents: l.unitCents,
+      extras: l.extras,
+      removed: l.removed,
+    }),
+  );
   const result = await db
-    .prepare("INSERT INTO orders (items, totalCents, createdAt) VALUES (?, ?, ?)")
-    .run(items, totalCents, Date.now());
-  return Number(result.lastInsertRowid);
+    .prepare(
+      `INSERT INTO orders (items, totalCents, createdAt, updatedAt, status, priority, customerName, customerPhone, customerAddress, notes, deliveryFeeCents, discountCents, paymentStatus)
+       VALUES (?, ?, ?, ?, 'new', 'normal', ?, ?, ?, ?, ?, ?, 'unpaid')`,
+    )
+    .run(
+      JSON.stringify(items),
+      totalCents,
+      now,
+      now,
+      opts.customerName ?? "",
+      opts.customerPhone ?? "",
+      opts.customerAddress ?? "",
+      opts.notes ?? "",
+      opts.deliveryFeeCents ?? 0,
+      opts.discountCents ?? 0,
+    );
+  const orderId = Number(result.lastInsertRowid);
+  for (const l of lines) {
+    await db
+      .prepare(
+        `INSERT INTO order_line (orderId, productId, name, qty, unitCents, lineCents, extras, removed)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        orderId,
+        l.productId,
+        l.name,
+        l.qty,
+        l.unitCents,
+        l.unitCents * l.qty,
+        JSON.stringify(l.extras ?? []),
+        JSON.stringify(l.removed ?? []),
+      );
+  }
+  await logActivity(db, orderId, "created", opts.actor ?? "system", "تم إنشاء الطلب");
+  return orderId;
 }
 
 export async function listOrders(): Promise<OrderRow[]> {
@@ -464,7 +644,98 @@ export async function listOrders(): Promise<OrderRow[]> {
   return (await db.prepare("SELECT * FROM orders ORDER BY id DESC").all()) as unknown as OrderRow[];
 }
 
+async function getOrderRow(id: number): Promise<OrderRow | undefined> {
+  const db = await getDb();
+  return plainRow<OrderRow>(await db.prepare("SELECT * FROM orders WHERE id = ?").get(id));
+}
+
+export async function getOrder(id: number): Promise<OrderDetail | undefined> {
+  const db = await getDb();
+  const order = await getOrderRow(id);
+  if (!order) return undefined;
+  const lines = (await db.prepare("SELECT * FROM order_line WHERE orderId = ? ORDER BY id").all(id)) as unknown as OrderLineRow[];
+  const activity = (await db.prepare("SELECT * FROM order_activity WHERE orderId = ? ORDER BY id").all(id)) as unknown as OrderActivityRow[];
+  return { order, lines, activity };
+}
+
+export async function updateOrderStatus(
+  id: number,
+  status: OrderStatus,
+  opts: { actor?: string; reason?: string } = {},
+): Promise<void> {
+  const db = await getDb();
+  const order = await getOrderRow(id);
+  if (!order || order.status === status) return;
+  const now = Date.now();
+  const cols: Record<string, string | number> = { status, updatedAt: now };
+  if (status === "preparing") {
+    cols.confirmedAt = now;
+    cols.preparingAt = now;
+  } else if (status === "delivered") {
+    cols.deliveredAt = now;
+  } else if (status === "completed") {
+    cols.completedAt = now;
+  } else if (status === "cancelled") {
+    cols.cancelledAt = now;
+    cols.cancelReason = opts.reason ?? "";
+  }
+  const keys = Object.keys(cols);
+  await db
+    .prepare(`UPDATE orders SET ${keys.map((k) => `${k} = ?`).join(", ")} WHERE id = ?`)
+    .run(...keys.map((k) => cols[k]), id);
+  const actor = opts.actor ?? "admin";
+  if (status === "preparing") {
+    await logActivity(db, id, "confirmed", actor, "تم تأكيد الطلب");
+    await logActivity(db, id, "preparing", actor, "بدأ التحضير");
+  } else if (status === "delivered") {
+    await logActivity(db, id, "delivered", actor, "تم التوصيل");
+  } else if (status === "completed") {
+    await logActivity(db, id, "completed", actor, "تم إكمال الطلب");
+  } else if (status === "cancelled") {
+    await logActivity(db, id, "cancelled", actor, opts.reason ? `الإلغاء: ${opts.reason}` : "تم إلغاء الطلب");
+  }
+}
+
+export async function setOrderPriority(
+  id: number,
+  priority: OrderPriority,
+  actor = "admin",
+): Promise<void> {
+  const db = await getDb();
+  await db
+    .prepare("UPDATE orders SET priority = ?, updatedAt = ? WHERE id = ?")
+    .run(priority, Date.now(), id);
+  await logActivity(db, id, "priority", actor, `الأولوية: ${priority}`);
+}
+
+export async function setOrderPaymentStatus(
+  id: number,
+  paymentStatus: PaymentStatus,
+  actor = "admin",
+): Promise<void> {
+  const db = await getDb();
+  await db
+    .prepare("UPDATE orders SET paymentStatus = ?, updatedAt = ? WHERE id = ?")
+    .run(paymentStatus, Date.now(), id);
+  await logActivity(db, id, "payment", actor, paymentStatus === "paid" ? "تم الدفع" : "غير مدفوع");
+}
+
 export async function deleteOrder(id: number): Promise<void> {
   const db = await getDb();
+  await db.prepare("DELETE FROM order_activity WHERE orderId = ?").run(id);
+  await db.prepare("DELETE FROM order_line WHERE orderId = ?").run(id);
   await db.prepare("DELETE FROM orders WHERE id = ?").run(id);
+}
+
+export async function getSetting(key: string): Promise<string | undefined> {
+  const db = await getDb();
+  const row = await db.prepare("SELECT value FROM settings WHERE key = ?").get(key);
+  return row ? String(row.value) : undefined;
+}
+
+export async function setSetting(key: string, value: string): Promise<void> {
+  const db = await getDb();
+  await db
+    .prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+    .run(key, value);
 }

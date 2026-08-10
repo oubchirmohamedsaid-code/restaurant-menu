@@ -9,7 +9,6 @@ import {
   createProduct,
   deleteCategory,
   deleteIngredient,
-  deleteOrder,
   deleteProduct,
   getCategoryById,
   getProductById,
@@ -17,12 +16,16 @@ import {
   listCategories,
   listProductsByCategory,
   reorderCategories,
+  setOrderPaymentStatus,
+  setOrderPriority,
   showHiddenProducts,
   updateCategory,
   updateCategoryImage,
   updateIngredient,
+  updateOrderStatus,
   updateProduct,
 } from "@/lib/db";
+import type { OrderPriority, PaymentStatus } from "@/lib/orders";
 import { saveImageUpload, deleteStoredImage } from "@/lib/upload";
 import { logger } from "@/lib/logger";
 
@@ -232,14 +235,45 @@ export async function deleteIngredientAction(
   return { ok: true };
 }
 
-export async function deleteOrderAction(
-  _prev: ActionResult,
-  formData: FormData,
-): Promise<ActionResult> {
+export async function confirmOrderAction(orderId: number): Promise<ActionResult> {
   if (!(await isAdmin())) redirect("/admin");
-  const id = Number(formData.get("id"));
-  await deleteOrder(id);
-  logger.info("order deleted", { id });
+  await updateOrderStatus(orderId, "preparing", { actor: "admin" });
+  logger.info("order confirmed", { orderId });
+  return { ok: true };
+}
+
+export async function markDeliveredAction(orderId: number): Promise<ActionResult> {
+  if (!(await isAdmin())) redirect("/admin");
+  await updateOrderStatus(orderId, "delivered", { actor: "admin" });
+  logger.info("order delivered", { orderId });
+  return { ok: true };
+}
+
+export async function completeOrderAction(orderId: number): Promise<ActionResult> {
+  if (!(await isAdmin())) redirect("/admin");
+  await updateOrderStatus(orderId, "completed", { actor: "admin" });
+  logger.info("order completed", { orderId });
+  return { ok: true };
+}
+
+export async function cancelOrderAction(orderId: number, reason: string): Promise<ActionResult> {
+  if (!(await isAdmin())) redirect("/admin");
+  await updateOrderStatus(orderId, "cancelled", { actor: "admin", reason });
+  logger.info("order cancelled", { orderId, reason });
+  return { ok: true };
+}
+
+export async function setOrderPriorityAction(orderId: number, priority: OrderPriority): Promise<ActionResult> {
+  if (!(await isAdmin())) redirect("/admin");
+  await setOrderPriority(orderId, priority);
+  logger.info("order priority set", { orderId, priority });
+  return { ok: true };
+}
+
+export async function setOrderPaymentStatusAction(orderId: number, paymentStatus: PaymentStatus): Promise<ActionResult> {
+  if (!(await isAdmin())) redirect("/admin");
+  await setOrderPaymentStatus(orderId, paymentStatus);
+  logger.info("order payment set", { orderId, paymentStatus });
   return { ok: true };
 }
 

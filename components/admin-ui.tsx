@@ -12,7 +12,6 @@ import {
   createProductAction,
   deleteCategoryAction,
   deleteIngredientAction,
-  deleteOrderAction,
   deleteProductAction,
   hideUnavailableProductsAction,
   loginAction,
@@ -25,7 +24,7 @@ import {
   updateProductAction,
 } from "@/app/admin/actions";
 import type { ActionResult } from "@/app/admin/actions";
-import type { CategoryWithCount, IngredientRow, OrderRow, ProductRow } from "@/lib/db";
+import type { CategoryWithCount, IngredientRow, ProductRow } from "@/lib/db";
 
 type ProductWithIngredients = ProductRow & { ingredients: IngredientRow[] };
 
@@ -483,105 +482,6 @@ function IngredientSection({
       <div className="mt-2">
         <Feedback error={state.error} />
       </div>
-    </div>
-  );
-}
-
-function DeleteOrderButton({ orderId }: { orderId: number }) {
-  const router = useRouter();
-  const [state, action, pending] = useActionState<ActionResult, FormData>(
-    deleteOrderAction,
-    {},
-  );
-
-  useEffect(() => {
-    if (state.ok) router.refresh();
-  }, [state, router]);
-
-  return (
-    <form action={action}>
-      <input type="hidden" name="id" value={orderId} />
-      <button
-        type="submit"
-        disabled={pending}
-        onClick={(e) => {
-          if (!window.confirm("حذف هذا الطلب؟")) e.preventDefault();
-        }}
-        className={btnGhost}
-      >
-        {pending ? "…" : "حذف"}
-      </button>
-    </form>
-  );
-}
-
-export function OrdersView({ orders }: { orders: OrderRow[] }) {
-  return (
-    <div className="mx-auto max-w-4xl px-4 py-8">
-      <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-black">الطلبات</h1>
-          <p className="mt-1 text-sm text-muted">{orders.length} طلب</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Link href="/admin/dashboard" className={btnGhost}>
-            لوحة التحكم
-          </Link>
-          <LogoutButton />
-        </div>
-      </header>
-
-      {orders.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-line bg-card p-10 text-center text-muted">
-          <p className="text-2xl" aria-hidden>📭</p>
-          <p className="mt-2 font-bold">لا توجد طلبات بعد</p>
-        </div>
-      ) : (
-        <ul className="space-y-4">
-          {orders.map((o) => {
-            let items: string[] = [];
-            try {
-              const parsed = JSON.parse(o.items);
-              if (Array.isArray(parsed)) items = parsed;
-            } catch {
-              items = [];
-            }
-            return (
-              <li key={o.id} className="rounded-3xl border border-line bg-card p-5">
-                <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3">
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/15 text-sm font-black text-accent-strong">
-                      #{o.id}
-                    </span>
-                    <div>
-                      <p className="text-sm font-extrabold">
-                        {new Date(o.createdAt).toLocaleString("ar", {
-                          dateStyle: "medium",
-                          timeStyle: "short",
-                        })}
-                      </p>
-                      <p className="text-xs text-muted">{items.length} صنف</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-lg font-black text-accent">
-                      {formatPrice(o.totalCents)}
-                    </span>
-                    <DeleteOrderButton orderId={o.id} />
-                  </div>
-                </div>
-                <ul className="space-y-1.5">
-                  {items.map((it, i) => (
-                    <li key={i} className="text-sm text-foreground">
-                      {it}
-                    </li>
-                  ))}
-                </ul>
-              </li>
-            );
-          })}
-        </ul>
-      )}
     </div>
   );
 }
