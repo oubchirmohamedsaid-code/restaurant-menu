@@ -7,6 +7,7 @@ import { logoutAction } from "@/app/admin/actions";
 const NAV = [
   { href: "/admin/orders", label: "الطلبات", icon: "🧾" },
   { href: "/admin/dashboard", label: "قائمة الطعام", icon: "🍽️" },
+  { href: "/admin/settings", label: "الإعدادات", icon: "⚙️" },
 ];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {

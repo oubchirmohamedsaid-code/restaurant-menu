@@ -20,6 +20,7 @@ import {
   reorderCategories,
   setOrderPaymentStatus,
   setOrderPriority,
+  setSetting,
   showHiddenProducts,
   updateCategory,
   updateCategoryImage,
@@ -278,6 +279,28 @@ export async function setOrderPaymentStatusAction(orderId: number, paymentStatus
   if (!(await isAdmin())) redirect("/admin");
   await setOrderPaymentStatus(orderId, paymentStatus);
   logger.info("order payment set", { orderId, paymentStatus });
+  return { ok: true };
+}
+
+const SETTINGS_MINUTES_KEYS = ["late_new_minutes", "late_preparing_minutes", "late_delivered_minutes"] as const;
+
+export async function saveSettingsAction(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  if (!(await isAdmin())) redirect("/admin");
+  const values: Record<string, number> = {};
+  for (const key of SETTINGS_MINUTES_KEYS) {
+    const n = Number(formData.get(key));
+    if (!Number.isInteger(n) || n < 1 || n > 720) {
+      return { error: "العتبات يجب أن تكون أعداداً صحيحة بين 1 و720 دقيقة" };
+    }
+    values[key] = n;
+  }
+  await Promise.all(
+    SETTINGS_MINUTES_KEYS.map((key) => setSetting(key, String(values[key]))),
+  );
+  logger.info("settings saved", values);
   return { ok: true };
 }
 
