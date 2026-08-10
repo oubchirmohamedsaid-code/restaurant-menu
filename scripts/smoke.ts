@@ -32,8 +32,8 @@ import {
   formatOrderLine,
   flyVector,
   FLY_TARGET_OPACITY,
-  FLY_RISE,
-  FLY_RISE_TRANSITION,
+  FLY_PREP_SCALE,
+  FLY_PREP_TRANSITION,
   FLY_LAUNCH_TRANSITION,
 } from "../lib/cart";
 import type { CartLine } from "../lib/cart";
@@ -302,23 +302,27 @@ async function main() {
   assert.deepStrictEqual(zero, { dx: 0, dy: 0 }, "aligned centers must produce a zero offset");
   console.log("✓ fly-to-cart animation vector verified");
 
-  // --- fly animation config: opaque + rise-then-arc launch (M19) ---
+  // --- fly animation config: opaque + 50%-shrink prep then arc launch (M20) ---
   assert.strictEqual(
     FLY_TARGET_OPACITY,
     1,
     "flying image must stay fully opaque so the path to the cart is clear",
   );
-  assert.ok(FLY_RISE > 0, "phase 1 must lift the image upward (float)");
+  assert.strictEqual(
+    FLY_PREP_SCALE,
+    0.5,
+    "prep phase must shrink the image to 50% instead of rising upward",
+  );
   assert.ok(
-    FLY_LAUNCH_TRANSITION.x.duration < FLY_RISE_TRANSITION.duration,
-    "launch toward the cart must be faster than the slow rise",
+    FLY_LAUNCH_TRANSITION.x.duration < FLY_PREP_TRANSITION.duration,
+    "launch toward the cart must be faster than the slow prep shrink",
   );
   assert.notDeepStrictEqual(
     FLY_LAUNCH_TRANSITION.x.ease,
     FLY_LAUNCH_TRANSITION.y.ease,
     "horizontal and vertical launch easing must differ to produce a curved arc",
   );
-  console.log("✓ fly animation config: opaque + rise-then-arc launch verified");
+  console.log("✓ fly animation config: opaque + 50%-shrink prep then arc launch verified");
 
   // --- orders create/list/delete ---
   const orderId = await createOrder(JSON.stringify(["بيتزا × 2 — 56.00 دج"]), 6600);

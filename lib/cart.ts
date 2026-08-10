@@ -28,9 +28,9 @@ export function flyVector(from: Rect, to: Rect): { dx: number; dy: number } {
 export const FLY_TARGET_OPACITY = 1;
 export const FLY_TARGET_SCALE = 0.08;
 
-export const FLY_RISE = 150;
+export const FLY_PREP_SCALE = 0.5;
 
-export const FLY_RISE_TRANSITION: {
+export const FLY_PREP_TRANSITION: {
   duration: number;
   ease: [number, number, number, number];
 } = { duration: 0.85, ease: [0.65, 0.05, 0.36, 1] };
