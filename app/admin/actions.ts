@@ -29,7 +29,7 @@ import {
   updateProduct,
 } from "@/lib/db";
 import type { OrderDetail, OrderLineInput } from "@/lib/db";
-import type { OrderPriority, PaymentStatus } from "@/lib/orders";
+import type { OrderPriority, PaymentStatus, OrderStatus } from "@/lib/orders";
 import { saveImageUpload, deleteStoredImage } from "@/lib/upload";
 import { logger } from "@/lib/logger";
 
@@ -265,6 +265,13 @@ export async function cancelOrderAction(orderId: number, reason: string): Promis
   if (!(await isAdmin())) redirect("/admin");
   await updateOrderStatus(orderId, "cancelled", { actor: "admin", reason });
   logger.info("order cancelled", { orderId, reason });
+  return { ok: true };
+}
+
+export async function setOrderStatusAction(orderId: number, status: OrderStatus): Promise<ActionResult> {
+  if (!(await isAdmin())) redirect("/admin");
+  await updateOrderStatus(orderId, status, { actor: "admin" });
+  logger.info("order status moved", { orderId, status });
   return { ok: true };
 }
 

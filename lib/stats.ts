@@ -23,6 +23,7 @@ export interface TopProduct {
   name: string;
   qty: number;
   revenueCents: number;
+  productId: number;
 }
 
 export interface OrderStats {
@@ -100,7 +101,7 @@ export function computeStats(orders: OrderRow[], lines: OrderLineRow[], now = Da
       p.qty += l.qty;
       p.revenueCents += l.lineCents;
     } else {
-      productMap.set(l.name, { name: l.name, qty: l.qty, revenueCents: l.lineCents });
+      productMap.set(l.name, { name: l.name, qty: l.qty, revenueCents: l.lineCents, productId: l.productId });
     }
   }
   const topProducts = [...productMap.values()].sort((a, b) => b.qty - a.qty).slice(0, 5);

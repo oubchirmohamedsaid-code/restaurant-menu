@@ -51,6 +51,7 @@ export interface OrderRow {
   deliveredAt: number | null;
   completedAt: number | null;
   cancelledAt: number | null;
+  paidAt: number | null;
 }
 
 export interface OrderLineInput {
@@ -172,7 +173,8 @@ CREATE TABLE IF NOT EXISTS orders (
   preparingAt INTEGER,
   deliveredAt INTEGER,
   completedAt INTEGER,
-  cancelledAt INTEGER
+  cancelledAt INTEGER,
+  paidAt INTEGER
 );
 CREATE TABLE IF NOT EXISTS order_line (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -304,6 +306,7 @@ const MIGRATIONS: Array<[string, string, string]> = [
   ["orders", "deliveredAt", "INTEGER"],
   ["orders", "completedAt", "INTEGER"],
   ["orders", "cancelledAt", "INTEGER"],
+  ["orders", "paidAt", "INTEGER"],
 ];
 
 async function migrate(db: DbHandle): Promise<void> {
@@ -385,6 +388,11 @@ export async function listProductsByCategory(categoryId: number): Promise<Produc
   return (await db
     .prepare("SELECT * FROM Product WHERE categoryId = ? ORDER BY sortOrder, id")
     .all(categoryId)) as unknown as ProductRow[];
+}
+
+export async function listAllProducts(): Promise<ProductRow[]> {
+  const db = await getDb();
+  return (await db.prepare("SELECT * FROM Product ORDER BY id").all()) as unknown as ProductRow[];
 }
 
 export async function getProductById(id: number): Promise<ProductRow | undefined> {
@@ -672,17 +680,37 @@ export async function updateOrderStatus(
   const order = await getOrderRow(id);
   if (!order || order.status === status) return;
   const now = Date.now();
-  const cols: Record<string, string | number> = { status, updatedAt: now };
-  if (status === "preparing") {
+  const cols: Record<string, string | number | null> = { status, updatedAt: now };
+  if (status === "new") {
+    cols.confirmedAt = null;
+    cols.preparingAt = null;
+    cols.deliveredAt = null;
+    cols.completedAt = null;
+    cols.cancelledAt = null;
+  } else if (status === "preparing") {
     cols.confirmedAt = now;
     cols.preparingAt = now;
+    cols.deliveredAt = null;
+    cols.completedAt = null;
+    cols.cancelledAt = null;
   } else if (status === "delivered") {
     cols.deliveredAt = now;
+    cols.completedAt = null;
+    cols.cancelledAt = null;
   } else if (status === "completed") {
     cols.completedAt = now;
+    cols.cancelledAt = null;
+    cols.paymentStatus = "paid";
+    cols.paidAt = now;
   } else if (status === "cancelled") {
     cols.cancelledAt = now;
     cols.cancelReason = opts.reason ?? "";
+    cols.paymentStatus = "unpaid";
+    cols.paidAt = null;
+  }
+  if (order.status === "completed" && status !== "completed") {
+    cols.paymentStatus = "unpaid";
+    cols.paidAt = null;
   }
   const keys = Object.keys(cols);
   await db
@@ -696,8 +724,14 @@ export async function updateOrderStatus(
     await logActivity(db, id, "delivered", actor, "تم التوصيل");
   } else if (status === "completed") {
     await logActivity(db, id, "completed", actor, "تم إكمال الطلب");
+    if (order.paymentStatus !== "paid") {
+      await logActivity(db, id, "payment", actor, "تم الدفع تلقائياً عند الإكمال");
+    }
   } else if (status === "cancelled") {
     await logActivity(db, id, "cancelled", actor, opts.reason ? `الإلغاء: ${opts.reason}` : "تم إلغاء الطلب");
+  }
+  if (order.status === "completed" && status !== "completed" && order.paymentStatus === "paid") {
+    await logActivity(db, id, "payment", actor, "أُلغي الدفع عند الإرجاع من المكتمل");
   }
 }
 
@@ -719,9 +753,11 @@ export async function setOrderPaymentStatus(
   actor = "admin",
 ): Promise<void> {
   const db = await getDb();
+  const cols: Record<string, string | number | null> = { paymentStatus, updatedAt: Date.now() };
+  cols.paidAt = paymentStatus === "paid" ? Date.now() : null;
   await db
-    .prepare("UPDATE orders SET paymentStatus = ?, updatedAt = ? WHERE id = ?")
-    .run(paymentStatus, Date.now(), id);
+    .prepare("UPDATE orders SET paymentStatus = ?, updatedAt = ?, paidAt = ? WHERE id = ?")
+    .run(cols.paymentStatus, cols.updatedAt, cols.paidAt, id);
   await logActivity(db, id, "payment", actor, paymentStatus === "paid" ? "تم الدفع" : "غير مدفوع");
 }
 
