@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { OrdersPipelineView } from "@/components/orders-pipeline";
+import OrderAlert from "@/components/order-alert";
 import { listOrders, getSetting } from "@/lib/db";
 import { DEFAULT_LATE_MINUTES } from "@/lib/orders";
 import { logger } from "@/lib/logger";
@@ -21,5 +22,10 @@ export default async function OrdersPage() {
     delivered: Number(lateDelivered ?? DEFAULT_LATE_MINUTES.delivered),
   };
   logger.info("orders page rendered", { orders: orders.length });
-  return <OrdersPipelineView orders={orders} thresholds={thresholds} />;
+  return (
+    <>
+      <OrdersPipelineView orders={orders} thresholds={thresholds} />
+      <OrderAlert />
+    </>
+  );
 }
