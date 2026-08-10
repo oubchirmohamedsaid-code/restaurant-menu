@@ -65,7 +65,7 @@ const PRIORITY_CHIP: Record<OrderPriority, string> = {
 };
 
 const cardBase =
-  "rounded-2xl border bg-surface p-3.5 shadow-soft transition-all duration-200 hover:shadow-card";
+  "rounded-2xl border bg-surface p-3.5 shadow-soft transition-all duration-200 hover:shadow-card lg:p-4 lg:hover:-translate-y-0.5 lg:shadow-[0_2px_4px_rgba(31,41,55,0.10),0_8px_20px_rgba(31,41,55,0.10)]";
 
 function CardButton({
   children,
@@ -311,7 +311,7 @@ function SortableColumn({
   return (
     <div
       ref={setNodeRef}
-      className={`relative w-72 shrink-0 rounded-3xl border bg-card-2/70 p-3 transition-all duration-200 lg:w-auto ${
+      className={`relative w-72 shrink-0 rounded-3xl border bg-card-2/70 p-3 transition-all duration-200 lg:w-auto lg:bg-card-2 lg:p-3.5 lg:shadow-[0_1px_2px_rgba(31,41,55,0.08),0_6px_18px_rgba(31,41,55,0.08)] ${
         isOver ? "border-accent/70 shadow-card" : "border-line"
       }`}
     >
@@ -842,7 +842,7 @@ export function OrdersPipelineView({
         </p>
       )}
 
-      <div className="lg:rounded-3xl lg:border lg:border-line lg:bg-card lg:p-4">
+      <div className="lg:rounded-3xl lg:border lg:border-line lg:bg-card lg:p-4 lg:shadow-[0_1px_2px_rgba(31,41,55,0.08),0_6px_18px_rgba(31,41,55,0.08)]">
         <DndContext
           sensors={sensors}
           collisionDetection={closestCorners}
@@ -886,7 +886,7 @@ export function OrdersPipelineView({
         </DndContext>
       </div>
 
-      <section className="mt-2 rounded-3xl border border-line bg-card-2/70 p-4 shadow-soft">
+      <section className="mt-2 rounded-3xl border border-line bg-card-2/70 p-4 shadow-soft lg:bg-card-2">
         <header className="mb-3 flex items-center gap-2">
           <span aria-hidden className={`h-2.5 w-2.5 rounded-full ${STATUS_DOT.cancelled}`} />
           <span className="text-sm font-black">{STATUS_LABELS.cancelled}</span>
