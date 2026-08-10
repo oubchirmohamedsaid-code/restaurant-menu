@@ -98,18 +98,22 @@ export function TrendChart({
             {d.label}
           </text>
         ))}
-        {data.map((d, i) => (
-          <rect
-            key={`hit-${d.key}`}
-            x={i === 0 ? padL : (points[i - 1].x + points[i].x) / 2}
-            y={padT}
-            width={i === n - 1 ? W - padR - (points[i - 1].x + points[i].x) / 2 : (points[i + 1].x - points[i].x) / 2 + (points[i].x - (points[i - 1].x + points[i].x) / 2)}
-            height={padT + plotH - padT}
-            fill="transparent"
-            onMouseEnter={() => setActive(i)}
-            onMouseLeave={() => setActive(null)}
-          />
-        ))}
+        {data.map((d, i) => {
+          const midBefore = i === 0 ? padL : (points[i - 1].x + points[i].x) / 2;
+          const midAfter = i === n - 1 ? W - padR : (points[i + 1].x + points[i].x) / 2;
+          return (
+            <rect
+              key={`hit-${d.key}`}
+              x={midBefore}
+              y={padT}
+              width={midAfter - midBefore}
+              height={padT + plotH - padT}
+              fill="transparent"
+              onMouseEnter={() => setActive(i)}
+              onMouseLeave={() => setActive(null)}
+            />
+          );
+        })}
       </svg>
       {active != null && (
         <Tooltip left={(points[active].x / W) * 100} top={(points[active].y / H) * 100}>
@@ -178,18 +182,22 @@ export function RevenueChart({
             {d.label}
           </text>
         ))}
-        {data.map((d, i) => (
-          <rect
-            key={`hit-${d.key}`}
-            x={i === 0 ? padL : (points[i - 1].x + points[i].x) / 2}
-            y={padT}
-            width={i === n - 1 ? W - padR - (points[i - 1].x + points[i].x) / 2 : (points[i + 1].x - points[i].x) / 2 + (points[i].x - (points[i - 1].x + points[i].x) / 2)}
-            height={padT + plotH - padT}
-            fill="transparent"
-            onMouseEnter={() => setActive(i)}
-            onMouseLeave={() => setActive(null)}
-          />
-        ))}
+        {data.map((d, i) => {
+          const midBefore = i === 0 ? padL : (points[i - 1].x + points[i].x) / 2;
+          const midAfter = i === n - 1 ? W - padR : (points[i + 1].x + points[i].x) / 2;
+          return (
+            <rect
+              key={`hit-${d.key}`}
+              x={midBefore}
+              y={padT}
+              width={midAfter - midBefore}
+              height={padT + plotH - padT}
+              fill="transparent"
+              onMouseEnter={() => setActive(i)}
+              onMouseLeave={() => setActive(null)}
+            />
+          );
+        })}
       </svg>
       {active != null && (
         <Tooltip left={(points[active].x / W) * 100} top={(points[active].y / H) * 100}>
@@ -325,8 +333,4 @@ export function KpiCard({
       {sub && <p className="mt-1 text-xs text-muted">{sub}</p>}
     </div>
   );
-}
-
-export function formatCents(cents: number): string {
-  return formatPrice(cents);
 }

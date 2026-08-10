@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { listOrders, listAllOrderLines, listAllProducts } from "@/lib/db";
 import { computeStats } from "@/lib/stats";
-import { KpiCard, TrendChart, DonutChart, TopProductsChart, RevenueChart, formatCents } from "@/components/stats-charts";
+import { KpiCard, TrendChart, DonutChart, TopProductsChart, RevenueChart } from "@/components/stats-charts";
+import { formatPrice } from "@/lib/utils";
 import { PRIORITY_LABELS } from "@/lib/orders";
 import { isAdmin } from "../actions";
 
@@ -31,12 +32,12 @@ export default async function StatsPage() {
         />
         <KpiCard
           label="إيراد اليوم"
-          value={formatCents(stats.last7Days[stats.last7Days.length - 1].revenueCents)}
+          value={formatPrice(stats.last7Days[stats.last7Days.length - 1].revenueCents)}
           accent="#22c55e"
         />
         <KpiCard label="طلبات نشطة" value={String(stats.activeOrders)} accent="#3b82f6" />
         <KpiCard label="غير مدفوعة" value={String(stats.unpaidOrders)} accent="#f59e0b" />
-        <KpiCard label="متوسط قيمة الطلب" value={formatCents(stats.avgOrderCents)} accent="#a78bfa" />
+        <KpiCard label="متوسط قيمة الطلب" value={formatPrice(stats.avgOrderCents)} accent="#a78bfa" />
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
