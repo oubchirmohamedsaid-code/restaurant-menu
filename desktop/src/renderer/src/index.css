@@ -1,0 +1,62 @@
+@import "@fontsource/cairo/400.css";
+@import "@fontsource/cairo/600.css";
+@import "@fontsource/cairo/700.css";
+@import "@fontsource/cairo/800.css";
+@import "@fontsource/cairo/900.css";
+@import "tailwindcss";
+
+@theme {
+  --color-background: #faf9f6;
+  --color-surface: #ffffff;
+  --color-card: #ffffff;
+  --color-card-2: #f3f1ec;
+  --color-line: #e7e4dc;
+  --color-accent: #b45309;
+  --color-accent-strong: #92400e;
+  --color-accent-soft: rgba(180, 83, 9, 0.1);
+  --color-foreground: #1f2937;
+  --color-muted: #6b7280;
+  --font-sans: "Cairo", "Segoe UI", system-ui, sans-serif;
+  --shadow-soft: 0 1px 2px rgba(31, 41, 55, 0.06), 0 4px 12px rgba(31, 41, 55, 0.06);
+  --shadow-card: 0 2px 4px rgba(31, 41, 55, 0.08), 0 8px 24px rgba(31, 41, 55, 0.1);
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  overflow: hidden;
+  user-select: none;
+}
+
+.app-region-drag {
+  -webkit-app-region: drag;
+}
+
+.app-region-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+::selection {
+  background: var(--color-accent);
+  color: #fff8f0;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-surface);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-line);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-accent);
+}

@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Desktop (Electron) app: own tooling (typecheck/build/tests) under desktop/.
+    "desktop/**",
   ]),
 ]);
 

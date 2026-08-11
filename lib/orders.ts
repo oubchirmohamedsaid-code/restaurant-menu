@@ -1,5 +1,3 @@
-import type { OrderRow } from "./db";
-
 export type OrderStatus = "new" | "preparing" | "delivered" | "completed" | "cancelled";
 export type OrderPriority = "normal" | "important" | "urgent";
 export type PaymentStatus = "unpaid" | "paid";
@@ -44,7 +42,12 @@ export const STAGE_TIMESTAMP: Record<StageStatus, "createdAt" | "preparingAt" | 
   delivered: "deliveredAt",
 };
 
-type StageOrder = Pick<OrderRow, "status" | "createdAt" | "preparingAt" | "deliveredAt">;
+interface StageOrder {
+  status: OrderStatus;
+  createdAt: number;
+  preparingAt: number | null;
+  deliveredAt: number | null;
+}
 
 export function stageStartTs(order: StageOrder): number | null {
   if (order.status === "new") return order.createdAt;
